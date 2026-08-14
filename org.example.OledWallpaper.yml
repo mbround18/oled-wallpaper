@@ -1,0 +1,30 @@
+app-id: org.example.OledWallpaper
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: oled-wallpaper
+
+finish-args:
+  - --share=display
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --socket=pulseaudio
+  - --filesystem=~/.config/oled-wallpaper:create
+  - --env=RUST_LOG=info
+
+modules:
+  - name: oled-wallpaper
+    buildsystem: cargo
+    build-options:
+      append-path: /usr/lib/sdk/rust/bin
+      env:
+        CARGO_HOME: /run/build/oled-wallpaper/cargo
+    sources:
+      - type: dir
+        path: .
+    post-install:
+      - install -Dm00755 target/release/oled-wallpaper /app/bin/oled-wallpaper
+      - install -Dm00644 org.example.OledWallpaper.desktop /app/share/applications/org.example.OledWallpaper.desktop
+      - install -Dm00644 org.example.OledWallpaper.appdata.xml /app/share/appdata/org.example.OledWallpaper.appdata.xml

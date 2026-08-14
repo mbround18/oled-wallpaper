@@ -1,0 +1,3 @@
+# Clippy lint configuration
+too-many-arguments-threshold = 8
+type-complexity-threshold = 500
