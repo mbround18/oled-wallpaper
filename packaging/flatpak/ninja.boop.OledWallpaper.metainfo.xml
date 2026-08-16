@@ -25,6 +25,10 @@
 
   <url type="homepage">https://boop.ninja</url>
 
+  <launchable type="desktop">
+    <name>ninja.boop.OledWallpaper.desktop</name>
+  </launchable>
+
   <provides>
     <binary>oled-wallpaper</binary>
   </provides>
