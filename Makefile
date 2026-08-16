@@ -1,6 +1,7 @@
 FLATPAK_MANIFEST := packaging/flatpak/ninja.boop.OledWallpaper.yml
 APP_ID := ninja.boop.OledWallpaper
 BUILD_DIR := build-dir
+DIST_DIR := dist
 
 .PHONY: all build build-flatpak build-local build-bundle flatpak install install-flatpak install-local clean uninstall-flatpak
 
@@ -50,17 +51,18 @@ install-local:
 
 # Build a Flatpak bundle file (.flatpak) and repo export
 build-bundle:
-	@echo "-> Building Flatpak repo and bundle"
-	@mkdir -p repo
-	flatpak-builder --repo=repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
-	flatpak build-bundle repo $(APP_ID).flatpak $(APP_ID) --runtime=org.freedesktop.Platform//23.08 || true
-	@echo "-> Bundle written to $(APP_ID).flatpak (or repo/ if build failed)"
+	@echo "-> Building Flatpak repo and bundle into $(DIST_DIR)"
+	@mkdir -p $(DIST_DIR)/repo
+	flatpak-builder --repo=$(DIST_DIR)/repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
+	flatpak build-bundle $(DIST_DIR)/repo $(DIST_DIR)/$(APP_ID).flatpak $(APP_ID) --runtime=org.freedesktop.Platform//23.08 || true
+	@echo "-> Bundle written to $(DIST_DIR)/$(APP_ID).flatpak (or $(DIST_DIR)/repo/ if build failed)"
 
 # Export the build repo for distribution (OSTree repo)
 export-repo:
-	@echo "-> Exporting flatpak repo to ./repo"
-	flatpak-builder --repo=repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
-	@echo "-> Repo ready in ./repo"
+	@echo "-> Exporting flatpak repo to $(DIST_DIR)/repo"
+	@mkdir -p $(DIST_DIR)/repo
+	flatpak-builder --repo=$(DIST_DIR)/repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
+	@echo "-> Repo ready in $(DIST_DIR)/repo"
 
 # Enable autostart by copying desktop file to the user's autostart directory
 enable-autostart:
@@ -85,15 +87,15 @@ flatpak:
 	@if ! command -v flatpak-builder >/dev/null 2>&1; then \
 		echo "Error: flatpak-builder not found. Install flatpak-builder to use 'make flatpak'."; exit 2; \
 	fi
-	@echo "-> Building repo and bundle"
-	@mkdir -p repo
-	flatpak-builder --repo=repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
-	flatpak build-bundle repo $(APP_ID).flatpak $(APP_ID) --runtime=org.freedesktop.Platform//23.08 || true
-	@echo "-> Bundle written to $(APP_ID).flatpak"
+	@echo "-> Building repo and bundle into $(DIST_DIR)"
+	@mkdir -p $(DIST_DIR)/repo
+	flatpak-builder --repo=$(DIST_DIR)/repo --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
+	flatpak build-bundle $(DIST_DIR)/repo $(DIST_DIR)/$(APP_ID).flatpak $(APP_ID) --runtime=org.freedesktop.Platform//23.08 || true
+	@echo "-> Bundle written to $(DIST_DIR)/$(APP_ID).flatpak"
 	@echo "-> Installing bundle to local flatpak (user)"
-	flatpak install --user --noninteractive --reinstall --assumeyes $(APP_ID).flatpak || true
+	flatpak install --user --noninteractive --reinstall --assumeyes $(DIST_DIR)/$(APP_ID).flatpak || true
 	@echo "-> Flatpak bundle built and installed (if supported)"
 
 clean:
-	rm -rf $(BUILD_DIR) target repo $(APP_ID).flatpak
-	@echo "-> cleaned build artifacts"
+	rm -rf $(BUILD_DIR) target repo $(APP_ID).flatpak $(DIST_DIR) $(DIST_DIR)/repo $(DIST_DIR)/$(APP_ID).flatpak
+	@echo "-> cleaned build artifacts (including $(DIST_DIR))"
