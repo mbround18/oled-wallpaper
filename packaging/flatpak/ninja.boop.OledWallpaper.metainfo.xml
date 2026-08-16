@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>ninja.boop.OledWallpaper</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+  <name>OLED Wallpaper</name>
+  <summary>Interactive animated galaxy wallpaper for OLED displays</summary>
+
+  <description>
+    <p>
+      OLED Wallpaper renders a living galaxy scene optimized for OLED and AMOLED panels.
+      True-black backgrounds maximize contrast and prevent burn-in, while a rich set of
+      interactive features turns your desktop into a dynamic space simulation.
+    </p>
+    <ul>
+      <li>Binary star system with realistic gravitational dynamics</li>
+      <li>Kepler orbital mechanics — planets follow elliptical orbits around the primary star</li>
+      <li>Oort cloud of procedurally generated comets and debris</li>
+      <li>Randomized meteor showers with glowing trails</li>
+      <li>Left-click panning to explore the galaxy</li>
+      <li>Right-click pulse effects that ripple through the star field</li>
+      <li>OLED burn-in prevention via slow scene drift and pixel-shifting</li>
+    </ul>
+  </description>
+
+  <url type="homepage">https://boop.ninja</url>
+
+  <provides>
+    <binary>oled-wallpaper</binary>
+  </provides>
+
+  <releases>
+    <release version="0.1.0" date="2026-08-14">
+      <description>
+        <p>Initial release featuring binary star system, Kepler orbits, Oort cloud, meteor showers, and interactive panning and pulse effects.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+</component>
