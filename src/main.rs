@@ -1379,6 +1379,13 @@ fn main() {
                         None
                     };
 
+                    // Emit a short-lived info log for E2E checks indicating widget visibility
+                    if widget_buf_opt.is_some() {
+                        tracing::info!("Widget overlay present");
+                    } else {
+                        tracing::info!("Widget overlay absent");
+                    }
+
                     if let (Some(ref b), Some((left, top))) = (&hud_buf_opt, hud_pos) {
                         areas.push(TextArea {
                             buffer: b,
