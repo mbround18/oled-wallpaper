@@ -7,7 +7,6 @@ use oled_wallpaper::configurator::ConfiguratorApp;
 #[derive(Parser)]
 #[command(name = "oled-config")]
 struct Args {
-    /// Run in headless mode and apply a preset
     #[arg(long)]
     headless: bool,
     #[arg(long)]
@@ -20,7 +19,6 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.headless {
-        // Headless mode: apply preset (if provided) - write config to path
         let config_path = args.config_dir.unwrap_or_else(|| {
             let mut p = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
             p.push("oled-wallpaper");
@@ -39,12 +37,10 @@ fn main() -> anyhow::Result<()> {
                     cfg.overlay.widget_enabled = true;
                 }
                 _ => {
-                    // fallback behavior used previously for tests
                     cfg.animation.planet_speed = 2.0;
                 }
             }
         }
-        // Atomic write to specified path
         if let Some(dir) = config_path.parent() {
             std::fs::create_dir_all(dir)?;
         }
@@ -60,9 +56,16 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // GUI mode
-    let options = eframe::NativeOptions::default();
-    let app = ConfiguratorApp::default();
-    let _ = eframe::run_native("OLED Configurator", options, Box::new(|_cc| Box::new(app)));
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(eframe::egui::vec2(860.0, 620.0)),
+        min_window_size: Some(eframe::egui::vec2(480.0, 400.0)),
+        resizable: true,
+        ..Default::default()
+    };
+    let _ = eframe::run_native(
+        "OLED Wallpaper  ·  Control Center",
+        options,
+        Box::new(|_cc| Box::new(ConfiguratorApp::default())),
+    );
     Ok(())
 }

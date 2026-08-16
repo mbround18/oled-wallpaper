@@ -1393,7 +1393,9 @@ fn main() {
                     // ── Prepare text overlays (HUD + widgets) ───────────────
                     let show_hud = demo_dur.is_some() || app_cfg.overlay.show_hud;
                     let show_widgets = app_cfg.overlay.widget_enabled
-                        && (app_cfg.overlay.show_clock || app_cfg.overlay.show_calendar);
+                        && (app_cfg.overlay.show_clock
+                            || app_cfg.overlay.show_calendar
+                            || app_cfg.weather.enabled);
 
                     let mut hud_pos: Option<(f32, f32)> = None;
                     let mut widget_style: Option<(f32, f32, GlyphColor)> = None;
