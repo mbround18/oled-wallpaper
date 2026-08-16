@@ -1,4 +1,4 @@
-FLATPAK_MANIFEST := ninja.boop.OledWallpaper.yml
+FLATPAK_MANIFEST := packaging/flatpak/ninja.boop.OledWallpaper.yml
 APP_ID := ninja.boop.OledWallpaper
 BUILD_DIR := build-dir
 
