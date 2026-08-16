@@ -141,6 +141,88 @@ use std::process::{Command, Stdio};
 use sysinfo::CpuExt;
 use sysinfo::{System, SystemExt};
 
+// ─── Geo-locate state ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default)]
+pub enum LocateStatus {
+    #[default]
+    Idle,
+    Working,
+    Found {
+        lat: f32,
+        lon: f32,
+        label: String,
+    },
+    Failed(String),
+}
+
+/// Spawn a thread that tries two free IP-geolocation APIs and writes the result
+/// back into `state`. The caller should `request_repaint()` after the thread
+/// writes, which happens automatically since we call it on the next repaint.
+fn spawn_locate(state: std::sync::Arc<std::sync::Mutex<LocateStatus>>) {
+    *state.lock().unwrap() = LocateStatus::Working;
+    std::thread::spawn(move || {
+        let result = try_locate();
+        *state.lock().unwrap() = result;
+    });
+}
+
+/// Try ipinfo.io first, fall back to ip-api.com.
+fn try_locate() -> LocateStatus {
+    // ── ipinfo.io ───────────────────────────────────────────────────────
+    if let Ok(resp) = ureq::get("https://ipinfo.io/json")
+        .timeout(std::time::Duration::from_secs(6))
+        .call()
+    {
+        if let Ok(body) = resp.into_json::<serde_json::Value>() {
+            if let Some(loc) = body["loc"].as_str() {
+                let parts: Vec<&str> = loc.split(',').collect();
+                if parts.len() == 2 {
+                    if let (Ok(lat), Ok(lon)) = (
+                        parts[0].trim().parse::<f32>(),
+                        parts[1].trim().parse::<f32>(),
+                    ) {
+                        let city = body["city"].as_str().unwrap_or("");
+                        let country = body["country"].as_str().unwrap_or("");
+                        let label = if city.is_empty() {
+                            format!("{lat:.4}, {lon:.4}")
+                        } else {
+                            format!("{city}, {country}")
+                        };
+                        return LocateStatus::Found { lat, lon, label };
+                    }
+                }
+            }
+        }
+    }
+
+    // ── ip-api.com fallback ──────────────────────────────────────────────
+    if let Ok(resp) = ureq::get("http://ip-api.com/json")
+        .timeout(std::time::Duration::from_secs(6))
+        .call()
+    {
+        if let Ok(body) = resp.into_json::<serde_json::Value>() {
+            if body["status"].as_str() == Some("success") {
+                if let (Some(lat), Some(lon)) = (
+                    body["lat"].as_f64().map(|v| v as f32),
+                    body["lon"].as_f64().map(|v| v as f32),
+                ) {
+                    let city = body["city"].as_str().unwrap_or("");
+                    let country = body["countryCode"].as_str().unwrap_or("");
+                    let label = if city.is_empty() {
+                        format!("{lat:.4}, {lon:.4}")
+                    } else {
+                        format!("{city}, {country}")
+                    };
+                    return LocateStatus::Found { lat, lon, label };
+                }
+            }
+        }
+    }
+
+    LocateStatus::Failed("Could not determine location via IP geolocation".to_string())
+}
+
 pub struct ConfiguratorApp {
     pub cfg: Config,
     tab: Tab,
@@ -155,6 +237,7 @@ pub struct ConfiguratorApp {
     startup_enabled: bool,
     save_message: Option<(String, f64)>, // (text, timestamp)
     theme_applied: bool,
+    locate_status: std::sync::Arc<std::sync::Mutex<LocateStatus>>,
 }
 
 impl Default for ConfiguratorApp {
@@ -178,6 +261,7 @@ impl Default for ConfiguratorApp {
             startup_enabled: autostart_enabled(),
             save_message: None,
             theme_applied: false,
+            locate_status: Default::default(),
         }
     }
 }
@@ -617,6 +701,7 @@ fn tab_weather(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
         .inner_margin(egui::style::Margin::same(14.0))
         .stroke(egui::Stroke::new(1.0_f32, BORDER))
         .show(ui, |ui| {
+            // Lat/Lon drag values
             ui.columns(2, |cols| {
                 cols[0].label(egui::RichText::new("Latitude").color(DIM).small());
                 cols[0].add(
@@ -640,6 +725,117 @@ fn tab_weather(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                 cols[1].add_space(2.0);
                 cols[1].label(egui::RichText::new("e.g.  -122.41").color(DIM).small());
             });
+
+            ui.add_space(8.0);
+            ui.separator();
+            ui.add_space(6.0);
+
+            // Read locate status (lock is brief, clone what we need)
+            let status_snap = app.locate_status.lock().unwrap().clone();
+
+            match &status_snap {
+                LocateStatus::Idle => {
+                    let btn = ui.add(
+                        egui::Button::new(
+                            egui::RichText::new("  ⌖  Detect My Location  ")
+                                .color(STAR)
+                                .strong(),
+                        )
+                        .fill(ACCENT_DIM)
+                        .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
+                    );
+                    if btn.clicked() {
+                        spawn_locate(app.locate_status.clone());
+                    }
+                    dim_label(ui, "Uses your external IP address via ipinfo.io → ip-api.com fallback");
+                }
+
+                LocateStatus::Working => {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(
+                            egui::RichText::new("Locating via IP geolocation…").color(DIM),
+                        );
+                    });
+                    // Keep repainting until done
+                    ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+                }
+
+                LocateStatus::Found { lat, lon, label } => {
+                    let lat = *lat;
+                    let lon = *lon;
+                    let label = label.clone();
+                    egui::Frame::none()
+                        .fill(DEEP)
+                        .rounding(egui::Rounding::same(6.0))
+                        .inner_margin(egui::style::Margin::same(10.0))
+                        .stroke(egui::Stroke::new(1.0_f32, GLOW_GREEN))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new("◉")
+                                        .color(GLOW_GREEN)
+                                        .strong(),
+                                );
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "{label}  ({lat:.4}, {lon:.4})"
+                                    ))
+                                    .color(STAR),
+                                );
+                            });
+                            ui.add_space(6.0);
+                            ui.horizontal(|ui| {
+                                let apply_btn = ui.add(
+                                    egui::Button::new(
+                                        egui::RichText::new("  Apply  ")
+                                            .color(STAR)
+                                            .strong(),
+                                    )
+                                    .fill(ACCENT_DIM)
+                                    .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
+                                );
+                                if apply_btn.clicked() {
+                                    app.cfg.weather.latitude = lat;
+                                    app.cfg.weather.longitude = lon;
+                                    *app.locate_status.lock().unwrap() = LocateStatus::Idle;
+                                    app.save_message =
+                                        Some((format!("Location set to {label}"), 0.0));
+                                }
+
+                                if ui
+                                    .button(egui::RichText::new("Retry").color(DIM))
+                                    .clicked()
+                                {
+                                    spawn_locate(app.locate_status.clone());
+                                }
+                            });
+                        });
+                }
+
+                LocateStatus::Failed(msg) => {
+                    let msg = msg.clone();
+                    egui::Frame::none()
+                        .fill(DEEP)
+                        .rounding(egui::Rounding::same(6.0))
+                        .inner_margin(egui::style::Margin::same(10.0))
+                        .stroke(egui::Stroke::new(1.0_f32, DANGER))
+                        .show(ui, |ui| {
+                            ui.label(
+                                egui::RichText::new(format!("✗  {msg}"))
+                                    .color(DANGER)
+                                    .small(),
+                            );
+                            ui.add_space(4.0);
+                            if ui
+                                .button(egui::RichText::new("  Retry  ").color(STAR))
+                                .clicked()
+                            {
+                                spawn_locate(app.locate_status.clone());
+                            }
+                        });
+                }
+            }
         });
 
     ui.add_space(10.0);
