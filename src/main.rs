@@ -16,7 +16,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, MouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Fullscreen, WindowBuilder},
+    window::{Fullscreen, WindowBuilder, WindowLevel},
 };
 
 use oled_wallpaper::config::Config;
@@ -24,6 +24,7 @@ use oled_wallpaper::init_tracing;
 use oled_wallpaper::perf::PerfStats;
 use oled_wallpaper::physics::{body::CelestialBody, orbit::Orbit, PhysicsSimulator};
 use oled_wallpaper::renderer::camera::Camera;
+use oled_wallpaper::runtime::acquire_wallpaper_lock;
 use oled_wallpaper::widgets::WidgetSystem;
 
 use glyphon::{
@@ -74,11 +75,10 @@ fn pin_x11(window_id: u32) {
             .map(|r| r.atom)
             .unwrap_or(0)
     };
+
+    // Window type: desktop (renders behind everything)
     let wm_type = intern(b"_NET_WM_WINDOW_TYPE");
     let type_desk = intern(b"_NET_WM_WINDOW_TYPE_DESKTOP");
-    let wm_state = intern(b"_NET_WM_STATE");
-    let below = intern(b"_NET_WM_STATE_BELOW");
-    let sticky = intern(b"_NET_WM_STATE_STICKY");
     conn.change_property(
         PropMode::REPLACE,
         window_id,
@@ -89,19 +89,49 @@ fn pin_x11(window_id: u32) {
         &type_desk.to_ne_bytes(),
     )
     .ok();
-    let mut sb = Vec::new();
+
+    // EWMH state: below + sticky + skip taskbar/pager (no alt-tab entry)
+    let wm_state = intern(b"_NET_WM_STATE");
+    let below = intern(b"_NET_WM_STATE_BELOW");
+    let sticky = intern(b"_NET_WM_STATE_STICKY");
+    let skip_taskbar = intern(b"_NET_WM_STATE_SKIP_TASKBAR");
+    let skip_pager = intern(b"_NET_WM_STATE_SKIP_PAGER");
+    let mut sb: Vec<u8> = Vec::new();
     sb.extend(below.to_ne_bytes());
     sb.extend(sticky.to_ne_bytes());
+    sb.extend(skip_taskbar.to_ne_bytes());
+    sb.extend(skip_pager.to_ne_bytes());
     conn.change_property(
         PropMode::REPLACE,
         window_id,
         wm_state,
         AtomEnum::ATOM,
         32,
-        2,
+        4,
         &sb,
     )
     .ok();
+
+    // WM_HINTS: input=false → WM will not give keyboard focus, but mouse works fine.
+    // Format: flags(u32), input(u32), initial_state, icon_pixmap, icon_window,
+    //         icon_x, icon_y, icon_mask, window_group  (each 32-bit)
+    // Flags bit 1 (InputHint) = 0x1
+    let wm_hints = intern(b"WM_HINTS");
+    let mut hints = [0u32; 9];
+    hints[0] = 0x1; // InputHint flag set
+    hints[1] = 0;   // input = False
+    let hints_bytes: Vec<u8> = hints.iter().flat_map(|v| v.to_ne_bytes()).collect();
+    conn.change_property(
+        PropMode::REPLACE,
+        window_id,
+        wm_hints,
+        wm_hints, // WM_HINTS type is WM_HINTS itself
+        32,
+        9,
+        &hints_bytes,
+    )
+    .ok();
+
     conn.flush().ok();
 }
 
@@ -539,6 +569,14 @@ fn main() {
     init_tracing();
     let args = Args::parse();
     let demo_dur = args.demo.map(std::time::Duration::from_secs);
+    let _instance_guard = match acquire_wallpaper_lock() {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::warn!("{e}");
+            eprintln!("OLED Wallpaper is already running. Open the configurator to manage it.");
+            return;
+        }
+    };
 
     // ── Window ─────────────────────────────────────────────────────────────
     let event_loop = EventLoop::new().expect("event loop");
@@ -548,6 +586,7 @@ fn main() {
             .with_title("OLED Wallpaper")
             .with_fullscreen(Some(Fullscreen::Borderless(monitor)))
             .with_decorations(false)
+            .with_window_level(WindowLevel::AlwaysOnBottom)
             .build(&event_loop)
             .expect("window"),
     );

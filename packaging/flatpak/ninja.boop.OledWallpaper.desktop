@@ -1,10 +1,10 @@
 [Desktop Entry]
-Name=OLED Wallpaper
-GenericName=Animated Wallpaper
-Comment=Interactive galaxy wallpaper for OLED displays – binary stars, orbiting planets, meteor showers
-Exec=oled-wallpaper
+Name=OLED Wallpaper Control Center
+GenericName=Wallpaper Controller
+Comment=Configure, start, and manage the OLED Wallpaper background
+Exec=oled-config
 Icon=ninja.boop.OledWallpaper
 Type=Application
-Categories=Utility;
-Keywords=wallpaper;space;galaxy;OLED;animated;
+Categories=Settings;Utility;
+Keywords=wallpaper;space;galaxy;OLED;animated;config;startup;
 StartupNotify=false

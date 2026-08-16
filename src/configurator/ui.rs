@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::runtime::{autostart_enabled, set_autostart_enabled, wallpaper_status};
 use eframe::egui;
 use egui::plot::{Line, Plot};
 use std::collections::VecDeque;
+use std::process::{Command, Stdio};
 use sysinfo::CpuExt;
 use sysinfo::{System, SystemExt};
 
@@ -15,6 +17,10 @@ pub struct ConfiguratorApp {
     cpu_history: VecDeque<f64>,
     mem_history: VecDeque<f64>,
     history_len: usize,
+    wallpaper_running: bool,
+    wallpaper_pid: Option<u32>,
+    startup_enabled: bool,
+    runtime_message: Option<String>,
 }
 
 impl Default for ConfiguratorApp {
@@ -32,6 +38,10 @@ impl Default for ConfiguratorApp {
             cpu_history: VecDeque::with_capacity(history_len),
             mem_history: VecDeque::with_capacity(history_len),
             history_len,
+            wallpaper_running: false,
+            wallpaper_pid: None,
+            startup_enabled: autostart_enabled(),
+            runtime_message: None,
         }
     }
 }
@@ -63,9 +73,85 @@ impl eframe::App for ConfiguratorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // update samples once per second by tying to frame time; keep it simple
         self.sample_system();
+        let status = wallpaper_status();
+        self.wallpaper_running = status.running;
+        self.wallpaper_pid = status.pid;
+        self.startup_enabled = autostart_enabled();
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("OLED Wallpaper Configurator");
+            ui.group(|ui| {
+                ui.heading("Runtime");
+                let state_text = if self.wallpaper_running {
+                    if let Some(pid) = self.wallpaper_pid {
+                        format!("Running (pid {pid})")
+                    } else {
+                        "Running".to_string()
+                    }
+                } else {
+                    "Stopped".to_string()
+                };
+                ui.label(format!("Wallpaper status: {state_text}"));
+
+                ui.horizontal(|ui| {
+                    let start_btn = ui.add_enabled(!self.wallpaper_running, egui::Button::new("Start wallpaper"));
+                    if start_btn.clicked() {
+                        match Command::new("oled-wallpaper")
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::null())
+                            .spawn()
+                        {
+                            Ok(_) => self.runtime_message = Some("Started wallpaper".to_string()),
+                            Err(e) => self.runtime_message = Some(format!("Failed to start wallpaper: {e}")),
+                        }
+                    }
+
+                    let stop_btn = ui.add_enabled(
+                        self.wallpaper_running && self.wallpaper_pid.is_some(),
+                        egui::Button::new("Stop wallpaper"),
+                    );
+                    if stop_btn.clicked() {
+                        if let Some(pid) = self.wallpaper_pid {
+                            match Command::new("kill").arg("-TERM").arg(pid.to_string()).status() {
+                                Ok(status) if status.success() => {
+                                    self.runtime_message = Some(format!("Stopped wallpaper (pid {pid})"))
+                                }
+                                Ok(status) => {
+                                    self.runtime_message =
+                                        Some(format!("Failed to stop wallpaper (exit status {status})"))
+                                }
+                                Err(e) => {
+                                    self.runtime_message = Some(format!("Failed to stop wallpaper: {e}"))
+                                }
+                            }
+                        }
+                    }
+                });
+
+                let mut startup = self.startup_enabled;
+                if ui.checkbox(&mut startup, "Start on login").changed() {
+                    match set_autostart_enabled(startup) {
+                        Ok(()) => {
+                            self.startup_enabled = startup;
+                            self.runtime_message = Some(if startup {
+                                "Enabled start on login".to_string()
+                            } else {
+                                "Disabled start on login".to_string()
+                            });
+                        }
+                        Err(e) => {
+                            self.runtime_message = Some(format!("Failed to update startup setting: {e}"));
+                        }
+                    }
+                }
+
+                if let Some(msg) = &self.runtime_message {
+                    ui.label(msg);
+                }
+            });
+
+            ui.separator();
             ui.label("Animation settings:");
             ui.horizontal(|ui| {
                 ui.label("Planet speed");

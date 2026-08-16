@@ -3,10 +3,9 @@ runtime: org.freedesktop.Platform//24.08
 sdk: org.freedesktop.Sdk//24.08
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-command: oled-wallpaper
+command: oled-config
 
 finish-args:
-  - --share=display
   - --share=ipc
   - --socket=wayland
   - --socket=x11
@@ -20,6 +19,7 @@ modules:
     build-commands:
       - . /usr/lib/sdk/rust-stable/enable.sh && cargo build --release
       - install -Dm755 target/release/oled-wallpaper /app/bin/oled-wallpaper
+      - install -Dm755 target/release/oled-config /app/bin/oled-config
       - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.desktop /app/share/applications/ninja.boop.OledWallpaper.desktop
       - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.metainfo.xml /app/share/metainfo/ninja.boop.OledWallpaper.metainfo.xml
       - install -Dm644 packaging/flatpak/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png /app/share/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png

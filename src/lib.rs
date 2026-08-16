@@ -10,6 +10,7 @@ pub mod math;
 pub mod perf;
 pub mod physics;
 pub mod renderer;
+pub mod runtime;
 pub mod wallpaper;
 pub mod widgets;
 
