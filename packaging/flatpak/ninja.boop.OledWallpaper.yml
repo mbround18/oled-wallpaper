@@ -2,7 +2,7 @@ app-id: ninja.boop.OledWallpaper
 runtime: org.freedesktop.Platform//24.08
 sdk: org.freedesktop.Sdk//24.08
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.rust-stable//24.08
+  - org.freedesktop.Sdk.Extension.rust-stable
 command: oled-wallpaper
 
 finish-args:
