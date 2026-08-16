@@ -5,7 +5,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --release --bin oled-wallpaper --bin oled-config
-      - name: Run e2e (placeholder)
-        run: echo "E2E placeholder - run wallpaper --demo and headless config"
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install deps (xvfb for headless display)
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Build (make)
+        run: make build
+      - name: Run E2E scripts
+        run: |
+          chmod +x tests/e2e/*.sh
+          # Run lightweight headless scripts (these use --demo short runs)
+          xvfb-run -a ./tests/e2e/e2e_us1_apply.sh
+          xvfb-run -a ./tests/e2e/e2e_us2_widget.sh
+          xvfb-run -a ./tests/e2e/e2e_wallpaper_demo_widget.sh
