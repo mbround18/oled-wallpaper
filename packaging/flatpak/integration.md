@@ -2,7 +2,7 @@
 
 To ensure the wallpaper autostarts when installed as a Flatpak:
 
-- Include packaging/autostart/oled-wallpaper.desktop in the Flatpak bundle (copy to /app/share/applications/).
+- Include packaging/autostart/ninja.boop.OledWallpaper.desktop in the Flatpak bundle (copy to /app/share/applications/).
 - Add a post-install step in the Flatpak manifest which installs the .desktop into the host autostart area or uses the xdg-autorun helper.
 - Flatpak must allow access to the user config dir so installed autostart entries are visible to the host. In the build manifest add finish-args such as:
   "finish-args": [

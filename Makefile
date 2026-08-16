@@ -66,7 +66,7 @@ export-repo:
 enable-autostart:
 	@echo "-> Installing autostart .desktop to ~/.config/autostart (no system changes are made in CI)"
 	@mkdir -p $(HOME)/.config/autostart
-	@cp packaging/autostart/oled-wallpaper.desktop $(HOME)/.config/autostart/ninja.boop.OledWallpaper.desktop || true
+	@cp packaging/autostart/ninja.boop.OledWallpaper.desktop $(HOME)/.config/autostart/ninja.boop.OledWallpaper.desktop || true
 	@echo "-> Autostart entry installed to $(HOME)/.config/autostart/ninja.boop.OledWallpaper.desktop"
 
 # Enable systemd --user service (requires the user to run this locally)
