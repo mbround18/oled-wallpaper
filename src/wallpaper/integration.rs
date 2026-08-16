@@ -1,7 +1,6 @@
 /// Window manager integration for X11 and Wayland
-/// 
+///
 /// Sets up wallpaper-specific window properties for both X11 EWMH and Wayland layer-shell.
-
 use crate::error::Result;
 use crate::wallpaper::DisplayServer;
 use tracing::info;
@@ -34,13 +33,13 @@ impl WallpaperWindow {
     /// Initialize X11 EWMH properties
     fn init_x11(&self) -> Result<()> {
         info!("Initializing X11 EWMH wallpaper properties");
-        
+
         // In a real implementation, this would:
         // 1. Set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_DESKTOP
         // 2. Set _NET_WM_STATE to _NET_WM_STATE_STICKY, etc.
         // 3. Disable window decorations via _MOTIF_WM_HINTS
         // 4. Position behind all windows
-        
+
         info!("X11 EWMH wallpaper properties initialized");
         Ok(())
     }
@@ -48,14 +47,14 @@ impl WallpaperWindow {
     /// Initialize Wayland layer-shell properties
     fn init_wayland(&self) -> Result<()> {
         info!("Initializing Wayland layer-shell wallpaper properties");
-        
+
         // In a real implementation, this would:
         // 1. Use wayland-client protocol
         // 2. Bind to wl_compositor and xdg_wm_base
         // 3. Get layer_shell interface
         // 4. Create layer surface with role=background, layer=bottom
         // 5. Anchor to all sides (top, bottom, left, right)
-        
+
         info!("Wayland layer-shell wallpaper properties initialized");
         Ok(())
     }

@@ -1,9 +1,10 @@
+#![allow(clippy::empty_line_after_doc_comments)]
+
 /// Common test infrastructure and helper functions
-/// 
+///
 /// Provides mock objects and utility functions for testing.
 
 #[allow(dead_code)]
-
 use glam::{Vec2, Vec3};
 
 /// Mock celestial body for testing

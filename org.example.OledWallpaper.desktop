@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OLED Wallpaper
+GenericName=Animated Wallpaper
+Comment=Interactive galaxy wallpaper for OLED displays – binary stars, orbiting planets, meteor showers
+Exec=oled-wallpaper
+Icon=org.example.OledWallpaper
+Type=Application
+Categories=Utility;
+Keywords=wallpaper;space;galaxy;OLED;animated;
+StartupNotify=false

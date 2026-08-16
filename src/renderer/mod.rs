@@ -1,6 +1,6 @@
+pub mod camera;
 /// Renderer module for graphics rendering
 pub mod scene;
-pub mod camera;
 
 use crate::error::Result;
 use glam::UVec2;
@@ -16,16 +16,14 @@ impl RenderPipeline {
     /// Create a new render pipeline
     pub fn new(width: u32, height: u32) -> Result<Self> {
         let viewport_size = UVec2::new(width, height);
-        
+
         if width == 0 || height == 0 {
             return Err(crate::error::Error::Render(
-                "Viewport dimensions must be positive".to_string()
+                "Viewport dimensions must be positive".to_string(),
             ));
         }
-        
-        Ok(RenderPipeline {
-            viewport_size,
-        })
+
+        Ok(RenderPipeline { viewport_size })
     }
 
     /// Initialize GPU context and render pass

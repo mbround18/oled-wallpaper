@@ -1,8 +1,7 @@
 /// Math utilities for the application
-/// 
+///
 /// Vector operations, matrix transformations, and geometric calculations.
-
-use glam::{Vec2, Vec3, Mat4};
+use glam::{Mat4, Vec2, Vec3};
 
 /// Linear interpolation between two values
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {

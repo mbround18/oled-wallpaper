@@ -1,7 +1,6 @@
 /// Wallpaper integration and display server management
-/// 
+///
 /// Handles X11 and Wayland display server detection and initialization.
-
 pub mod integration;
 
 use crate::error::Result;

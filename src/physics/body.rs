@@ -1,9 +1,8 @@
+use crate::error::{Error, Result};
 /// Celestial body physics and state management
 ///
 /// Represents a single celestial object (sun or planet) in the galaxy scene.
-
 use glam::Vec3;
-use crate::error::{Error, Result};
 
 /// A celestial body (sun or planet)
 #[derive(Clone, Debug)]
@@ -96,34 +95,43 @@ impl CelestialBody {
     /// Validate the celestial body
     pub fn validate(&self) -> Result<()> {
         if self.id.is_empty() {
-            return Err(Error::Validation("CelestialBody ID cannot be empty".to_string()));
+            return Err(Error::Validation(
+                "CelestialBody ID cannot be empty".to_string(),
+            ));
         }
 
         if self.radius <= 0.0 {
-            return Err(Error::Validation(
-                format!("CelestialBody radius must be > 0.0, got {}", self.radius)
-            ));
+            return Err(Error::Validation(format!(
+                "CelestialBody radius must be > 0.0, got {}",
+                self.radius
+            )));
         }
 
         if self.mass <= 0.0 {
-            return Err(Error::Validation(
-                format!("CelestialBody mass must be > 0.0, got {}", self.mass)
-            ));
+            return Err(Error::Validation(format!(
+                "CelestialBody mass must be > 0.0, got {}",
+                self.mass
+            )));
         }
 
         if self.color.w <= 0.0 {
             return Err(Error::Validation(
-                "CelestialBody color alpha must be > 0.0".to_string()
+                "CelestialBody color alpha must be > 0.0".to_string(),
             ));
         }
 
         // Ensure all color components are in valid range
-        if self.color.x < 0.0 || self.color.x > 1.0 ||
-           self.color.y < 0.0 || self.color.y > 1.0 ||
-           self.color.z < 0.0 || self.color.z > 1.0 ||
-           self.color.w < 0.0 || self.color.w > 1.0 {
+        if self.color.x < 0.0
+            || self.color.x > 1.0
+            || self.color.y < 0.0
+            || self.color.y > 1.0
+            || self.color.z < 0.0
+            || self.color.z > 1.0
+            || self.color.w < 0.0
+            || self.color.w > 1.0
+        {
             return Err(Error::Validation(
-                "CelestialBody color components must be in range [0.0, 1.0]".to_string()
+                "CelestialBody color components must be in range [0.0, 1.0]".to_string(),
             ));
         }
 
@@ -170,16 +178,11 @@ mod tests {
 
     #[test]
     fn test_update_position() {
-        let mut body = CelestialBody::planet(
-            "planet".to_string(),
-            Vec3::ZERO,
-            5.0,
-            Vec4::ONE,
-        );
+        let mut body = CelestialBody::planet("planet".to_string(), Vec3::ZERO, 5.0, Vec4::ONE);
         body.velocity = Vec3::new(1.0, 2.0, 0.0);
-        
+
         body.update_position(1.0);
-        
+
         assert_eq!(body.position.x, 1.0);
         assert_eq!(body.position.y, 2.0);
     }
@@ -188,9 +191,9 @@ mod tests {
     fn test_static_body_doesnt_move() {
         let mut sun = CelestialBody::sun("sun".to_string(), Vec3::ZERO);
         sun.velocity = Vec3::new(10.0, 10.0, 0.0);
-        
+
         sun.update_position(1.0);
-        
+
         assert_eq!(sun.position, Vec3::ZERO);
     }
 
@@ -209,40 +212,19 @@ mod tests {
 
     #[test]
     fn test_validation_fails_empty_id() {
-        let body = CelestialBody::new(
-            "".to_string(),
-            Vec3::ZERO,
-            5.0,
-            Vec4::ONE,
-            1.0,
-            false,
-        );
+        let body = CelestialBody::new("".to_string(), Vec3::ZERO, 5.0, Vec4::ONE, 1.0, false);
         assert!(body.validate().is_err());
     }
 
     #[test]
     fn test_validation_fails_invalid_radius() {
-        let body = CelestialBody::new(
-            "test".to_string(),
-            Vec3::ZERO,
-            0.0,
-            Vec4::ONE,
-            1.0,
-            false,
-        );
+        let body = CelestialBody::new("test".to_string(), Vec3::ZERO, 0.0, Vec4::ONE, 1.0, false);
         assert!(body.validate().is_err());
     }
 
     #[test]
     fn test_validation_fails_invalid_mass() {
-        let body = CelestialBody::new(
-            "test".to_string(),
-            Vec3::ZERO,
-            5.0,
-            Vec4::ONE,
-            0.0,
-            false,
-        );
+        let body = CelestialBody::new("test".to_string(), Vec3::ZERO, 5.0, Vec4::ONE, 0.0, false);
         assert!(body.validate().is_err());
     }
 
@@ -269,10 +251,10 @@ mod tests {
             1.0,
             false,
         );
-        
+
         // Point at center
         assert!(body.intersects_point([100.0, 100.0], 0.0));
-        
+
         // Point outside
         assert!(!body.intersects_point([200.0, 200.0], 0.0));
     }

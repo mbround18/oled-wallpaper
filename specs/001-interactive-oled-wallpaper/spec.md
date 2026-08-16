@@ -74,6 +74,43 @@ A user can install and launch the application as a managed package (Flatpak, App
 
 ---
 
+### User Story 5 – Cosmic Ambiance Effects (Priority: P2)
+
+A user views a richly layered space scene where distant cosmic phenomena fill the background: a faint ring of icy debris at the edge of the solar system, softly glowing nebulae in the far distance, a field of dim background stars that rotate with the scene, and rare instantaneous bright streaks of cosmic rays crossing the display. These effects deepen the sense of being in outer space without overwhelming the primary solar system view.
+
+**Why this priority**: These effects elevate the visual quality and reinforce OLED burn-in prevention by adding subtle pixel-level movement throughout the entire screen, but they are not essential to the core interactive experience.
+
+**Independent Test**: Can be tested by observing the scene over a 5-minute period and confirming that background stars rotate with the plane, the Oort cloud ring is faintly visible at the scene boundary, at least one nebula region is visible, and a cosmic ray streak occurs at least once.
+
+**Acceptance Scenarios**:
+
+1. **Given** the wallpaper is running, **When** the user observes the scene, **Then** approximately 250 dim background stars are visible, rotating with the galactic plane yaw.
+2. **Given** the wallpaper is running, **When** the user observes the outer edge of the scene, **Then** a faint ring of ~120 slowly drifting icy bodies (the Oort cloud) is visible.
+3. **Given** the wallpaper is running over time, **When** a nebula region is visible, **Then** it appears as a large soft-glowing color region (purple, blue, pink, or teal) at very low opacity that does not obscure foreground objects.
+4. **Given** the wallpaper is running, **When** a cosmic ray event fires, **Then** a sharp, near-instantaneous bright streak crosses the screen and fades within 0.3 seconds.
+5. **Given** all cosmic ambiance effects are active, **When** monitoring frame rate, **Then** frame rate does not drop below 30 FPS.
+
+---
+
+### User Story 6 – Overlay Widget System (Priority: P2)
+
+A user can optionally enable floating widgets—such as a clock or calendar—displayed directly over the wallpaper. The user can drag each widget to a preferred screen position, or enable a "float mode" that slowly moves the widget across the screen along a smooth path, ensuring no pixel beneath the widget stays lit in the same pattern for long. Widget positions and settings are saved automatically so they persist across application restarts.
+
+**Why this priority**: Widgets add practical utility to the decorative wallpaper experience, and float mode directly contributes to OLED burn-in prevention for widget pixels. However, widgets are an optional enhancement and not core to the wallpaper concept.
+
+**Independent Test**: Can be tested by enabling the clock widget in the config, verifying it displays the current time, dragging it to a new position, restarting the app and confirming the position persisted, and enabling float mode to confirm the widget visibly drifts over a 60-second period.
+
+**Acceptance Scenarios**:
+
+1. **Given** the clock widget is enabled in config, **When** the wallpaper is running, **Then** a clock displaying the current time is visible in the configured format (12h or 24h, with or without seconds).
+2. **Given** the clock widget is displayed, **When** the user reads the displayed time, **Then** it is accurate to within 1 second of system time.
+3. **Given** the calendar widget is enabled, **When** the wallpaper is running, **Then** the current date (or full month view, depending on config) is displayed as an overlay widget.
+4. **Given** a widget is displayed, **When** the user clicks and drags it, **Then** the widget moves to the new position and remains there until moved again.
+5. **Given** float mode is enabled for a widget, **When** 60 seconds have elapsed, **Then** the widget's screen position has changed by at least 50 pixels from its position at the start of that period.
+6. **Given** the user repositions or configures a widget, **When** the application is restarted, **Then** the widget appears at the saved position with the saved settings.
+
+---
+
 ### Edge Cases
 
 - What happens if the user opens a full-screen application? (Wallpaper may be hidden; should resume when returning to desktop)
@@ -97,6 +134,24 @@ A user can install and launch the application as a managed package (Flatpak, App
 - **FR-008**: System MUST prevent static burn-in on OLED panels by ensuring no pixel region remains completely static for extended periods
 - **FR-009**: System MUST handle window manager interactions gracefully (e.g., allow other applications to run on top)
 - **FR-010**: System MUST provide configurable animation parameters including planet orbital speed, colors, sizes, orbital patterns, and zoom/pan scale
+- **FR-011**: System MUST render a background starfield of ~250 distant stars that rotate with the scene's galactic plane yaw
+- **FR-012**: System MUST render an Oort cloud consisting of ~120 icy bodies positioned at the edge of the solar system, slowly drifting with slight vertical scatter for a spherical feel
+- **FR-013**: System MUST periodically display nebula clouds as large soft-glowing color regions (purple, blue, pink, or teal) at very low opacity
+- **FR-014**: System MUST display rare cosmic ray events as fast, bright streaks that are rarer than meteor showers and fade within 0.3 seconds
+- **FR-015**: System MUST support optional overlay widgets (clock, calendar) with configurable display format and screen position
+- **FR-016**: Widgets MUST support a "float mode" that slowly drifts the widget's position along a smooth path to prevent static burn-in under the widget
+
+### Already Implemented Effects (as of initial build)
+
+The following features are implemented in the codebase and captured here for specification completeness:
+
+- **Binary star system**: Two stars orbit their shared gravitational center (barycenter) on a 20-second period, visible alongside the primary sun
+- **45° edge-on galactic plane**: The scene is viewed from a 45° edge-on angle with the entire galactic plane rotating slowly (5-minute full revolution) to prevent burn-in
+- **Meteor showers**: Meteors spawn approximately every 12 seconds with a 12-segment fading trail and randomized direction and speed
+- **Easter egg alien ship**: Approximately every 3 minutes, a small alien ship appears, blinks green, travels a wobbly path across the scene, and is logged to the console
+- **`--demo N` CLI flag**: Using the `clap` argument parser, the user can pass `--demo N` to auto-close the application after N seconds (useful for screenshots and testing)
+- **OS-agnostic wallpaper pinning**: The application uses raw window handle detection to pin the window as a desktop wallpaper layer on X11, Wayland, and unknown display servers
+- **Additive perspective projection**: Scene objects are projected using an additive blending perspective from the 45° view angle, giving bright objects a glowing appearance
 
 ### Key Entities
 
@@ -118,6 +173,10 @@ A user can install and launch the application as a managed package (Flatpak, App
 - **SC-006**: After 8+ hours of continuous display on OLED panel, no visible static image burn-in occurs in any screen region
 - **SC-007**: Application memory footprint remains <200 MB during normal operation
 - **SC-008**: 90% of users find the interactive experience pleasant and engaging (subjective, measured via feedback)
+- **SC-009**: Cosmic ambiance effects (starfield, Oort cloud, nebulae, cosmic rays) render without the frame rate dropping below 30 FPS
+- **SC-010**: In float mode, a widget's screen position changes by at least 50 pixels every 60 seconds, ensuring burn-in prevention for the widget region
+- **SC-011**: The clock widget displays system time accurate to within 1 second at all times
+- **SC-012**: All cosmic ambiance effects (Oort cloud, nebulae, cosmic rays, background starfield) contribute to pixel movement such that no screen region remains completely static for more than 10 minutes
 
 ## Assumptions
 

@@ -5,7 +5,6 @@ pub mod orbit;
 use crate::error::Result;
 use body::CelestialBody;
 use orbit::Orbit;
-use glam::Vec3;
 
 /// Physics simulation coordinator
 pub struct PhysicsSimulator {
@@ -43,7 +42,7 @@ impl PhysicsSimulator {
             if let Some(body) = self.bodies.iter_mut().find(|b| b.id == orbit.body_id) {
                 let position = orbit.get_position_at_time(current_time);
                 body.position = position;
-                
+
                 let velocity = orbit.get_velocity_at_time(current_time);
                 body.velocity = velocity;
             }
@@ -80,9 +79,10 @@ impl PhysicsSimulator {
         // Check that there's exactly one static body (the sun)
         let static_count = self.bodies.iter().filter(|b| b.is_static).count();
         if static_count > 1 {
-            return Err(crate::error::Error::Validation(
-                format!("Expected exactly 1 static body, found {}", static_count)
-            ));
+            return Err(crate::error::Error::Validation(format!(
+                "Expected exactly 1 static body, found {}",
+                static_count
+            )));
         }
 
         Ok(())
@@ -98,7 +98,7 @@ impl Default for PhysicsSimulator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec4;
+    use glam::{Vec3, Vec4};
 
     #[test]
     fn test_physics_simulator_creation() {
@@ -111,7 +111,7 @@ mod tests {
     fn test_add_body() {
         let mut sim = PhysicsSimulator::new();
         let sun = CelestialBody::sun("sun".to_string(), Vec3::ZERO);
-        
+
         assert!(sim.add_body(sun).is_ok());
         assert_eq!(sim.bodies.len(), 1);
     }
@@ -119,14 +119,9 @@ mod tests {
     #[test]
     fn test_add_invalid_body() {
         let mut sim = PhysicsSimulator::new();
-        let mut body = CelestialBody::planet(
-            "planet".to_string(),
-            Vec3::ZERO,
-            5.0,
-            Vec4::ONE,
-        );
+        let mut body = CelestialBody::planet("planet".to_string(), Vec3::ZERO, 5.0, Vec4::ONE);
         body.radius = 0.0; // Invalid
-        
+
         assert!(sim.add_body(body).is_err());
         assert_eq!(sim.bodies.len(), 0);
     }
@@ -135,7 +130,7 @@ mod tests {
     fn test_add_orbit() {
         let mut sim = PhysicsSimulator::new();
         let orbit = Orbit::circular("planet".to_string(), "sun".to_string(), 100.0, 60.0);
-        
+
         assert!(sim.add_orbit(orbit).is_ok());
         assert_eq!(sim.orbits.len(), 1);
     }
@@ -143,11 +138,11 @@ mod tests {
     #[test]
     fn test_update_all_bodies() {
         let mut sim = PhysicsSimulator::new();
-        
+
         // Add sun
         let sun = CelestialBody::sun("sun".to_string(), Vec3::ZERO);
         sim.add_body(sun).unwrap();
-        
+
         // Add planet
         let mut planet = CelestialBody::planet(
             "planet".to_string(),
@@ -157,18 +152,18 @@ mod tests {
         );
         planet.velocity = Vec3::new(0.0, 10.0, 0.0);
         sim.add_body(planet).unwrap();
-        
+
         // Add orbit
         let orbit = Orbit::circular("planet".to_string(), "sun".to_string(), 100.0, 60.0);
         sim.add_orbit(orbit).unwrap();
-        
+
         let initial_pos = sim.get_body("planet").unwrap().position;
-        
+
         // Update
         sim.update_all_bodies(1.0, 5.0);
-        
+
         let new_pos = sim.get_body("planet").unwrap().position;
-        
+
         // Position should change
         assert_ne!(initial_pos, new_pos);
     }
@@ -176,11 +171,11 @@ mod tests {
     #[test]
     fn test_validate_simulation() {
         let mut sim = PhysicsSimulator::new();
-        
+
         // Add sun
         let sun = CelestialBody::sun("sun".to_string(), Vec3::ZERO);
         sim.add_body(sun).unwrap();
-        
+
         // Add planet
         let planet = CelestialBody::planet(
             "planet".to_string(),
@@ -189,26 +184,26 @@ mod tests {
             Vec4::ONE,
         );
         sim.add_body(planet).unwrap();
-        
+
         // Add orbit
         let orbit = Orbit::circular("planet".to_string(), "sun".to_string(), 100.0, 60.0);
         sim.add_orbit(orbit).unwrap();
-        
+
         assert!(sim.validate().is_ok());
     }
 
     #[test]
     fn test_validate_fails_multiple_suns() {
         let mut sim = PhysicsSimulator::new();
-        
+
         // Add first sun
         let sun1 = CelestialBody::sun("sun1".to_string(), Vec3::ZERO);
         sim.add_body(sun1).unwrap();
-        
+
         // Add second sun (invalid)
         let sun2 = CelestialBody::sun("sun2".to_string(), Vec3::new(100.0, 0.0, 0.0));
         sim.add_body(sun2).unwrap();
-        
+
         // Validation should fail due to multiple static bodies
         assert!(sim.validate().is_err());
     }

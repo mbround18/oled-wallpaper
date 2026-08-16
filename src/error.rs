@@ -1,7 +1,6 @@
 /// Error handling types for the application
-/// 
+///
 /// Provides custom error enum and Result type alias for consistent error management.
-
 use thiserror::Error;
 
 /// Application error type
@@ -58,7 +57,7 @@ mod tests {
     fn test_result_type() {
         let ok_result: Result<i32> = Ok(42);
         assert!(ok_result.is_ok());
-        
+
         let err_result: Result<i32> = Err(Error::Config("test".to_string()));
         assert!(err_result.is_err());
     }

@@ -1,7 +1,6 @@
 /// Scene management for rendering
-/// 
+///
 /// Container for all entities to be rendered, including celestial bodies and effects.
-
 use crate::error::Result;
 
 /// Base scene structure containing all renderable entities
@@ -79,32 +78,35 @@ impl Scene {
     }
 
     /// Get all celestial bodies in screen space
-    /// 
+    ///
     /// This would typically be called with a camera to transform world space to screen space.
     pub fn get_bodies_for_rendering(&self) -> Vec<(String, [f32; 3], f32, [f32; 4])> {
-        self.entities.iter()
-            .filter_map(|entity| {
-                if let SceneEntity::CelestialBody { id, position, radius, color } = entity {
-                    Some((id.clone(), *position, *radius, *color))
-                } else {
-                    None
-                }
+        self.entities
+            .iter()
+            .map(|entity| {
+                let SceneEntity::CelestialBody {
+                    id,
+                    position,
+                    radius,
+                    color,
+                } = entity;
+                (id.clone(), *position, *radius, *color)
             })
             .collect()
     }
 
     /// Render all entities in the scene
-    /// 
+    ///
     /// In a full implementation, this would use the renderer to draw all bodies.
     pub fn render(&self, _renderer: &crate::renderer::RenderPipeline) -> Result<()> {
         // Get all bodies for rendering
         let _bodies = self.get_bodies_for_rendering();
-        
+
         // In a real implementation:
         // 1. For each body, create a mesh (circle quad)
         // 2. Apply color and transform
         // 3. Submit to renderer
-        
+
         Ok(())
     }
 }
@@ -148,7 +150,7 @@ mod tests {
             color: [1.0, 1.0, 0.0, 1.0],
         };
         scene.add_entity(entity);
-        
+
         let retrieved = scene.get_entity("sun");
         assert!(retrieved.is_some());
     }
@@ -163,7 +165,7 @@ mod tests {
             color: [1.0, 1.0, 0.0, 1.0],
         };
         scene.add_entity(entity);
-        
+
         let removed = scene.remove_entity("sun");
         assert!(removed);
         assert_eq!(scene.entity_count(), 0);
@@ -184,7 +186,7 @@ mod tests {
             radius: 5.0,
             color: [0.2, 0.6, 1.0, 1.0],
         });
-        
+
         scene.clear();
         assert_eq!(scene.entity_count(), 0);
     }

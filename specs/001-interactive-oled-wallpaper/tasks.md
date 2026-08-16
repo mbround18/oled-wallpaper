@@ -254,24 +254,24 @@
 
 ### Build Configuration for User Story 4
 
-- [ ] T095 [US4] Finalize Flatpak manifest at `org.example.OledWallpaper.yml`: add finish-args for display, input, config directory permissions
-- [ ] T096 [US4] Create Flatpak build script in `build-flatpak.sh`: orchestrates `flatpak-builder` commands
-- [ ] T097 [US4] Test Flatpak build locally: `flatpak-builder --user build org.example.OledWallpaper.yml`
-- [ ] T098 [US4] Create AppImage build configuration (optional): if building AppImage format alternative
-- [ ] T099 [US4] Create release build in Cargo.toml: optimize for size and performance (`opt-level = 3`, `lto = true`)
+- [X] T095 [US4] Finalize Flatpak manifest at `org.example.OledWallpaper.yml`: add finish-args for display, input, config directory permissions
+- [X] T096 [US4] Create Flatpak build script in `build-flatpak.sh`: orchestrates `flatpak-builder` commands
+- [X] T097 [US4] Test Flatpak build locally: `flatpak-builder --user build org.example.OledWallpaper.yml`
+- [X] T098 [US4] Create AppImage build configuration (optional): if building AppImage format alternative
+- [X] T099 [US4] Create release build in Cargo.toml: optimize for size and performance (`opt-level = 3`, `lto = true`)
 
 ### Deployment & Launch Testing for User Story 4
 
-- [ ] T100 [US4] Install Flatpak app: `flatpak build-install build org.example.OledWallpaper`
-- [ ] T101 [US4] Verify Flatpak installation: `flatpak list --app | grep OledWallpaper`
-- [ ] T102 [US4] Launch via Flatpak: `flatpak run org.example.OledWallpaper` - verify wallpaper appears
-- [ ] T103 [US4] Verify Flatpak permissions: all graphics/input/config access working without permission errors
-- [ ] T104 [US4] Test uninstall: `flatpak uninstall org.example.OledWallpaper` - clean removal with no artifacts
+- [X] T100 [US4] Install Flatpak app: `flatpak build-install build org.example.OledWallpaper`
+- [X] T101 [US4] Verify Flatpak installation: `flatpak list --app | grep OledWallpaper`
+- [X] T102 [US4] Launch via Flatpak: `flatpak run org.example.OledWallpaper` - verify wallpaper appears
+- [X] T103 [US4] Verify Flatpak permissions: all graphics/input/config access working without permission errors
+- [X] T104 [US4] Test uninstall: `flatpak uninstall org.example.OledWallpaper` - clean removal with no artifacts
 
 ### Manual Testing for User Story 4
 
-- [ ] T105 [US4] Run Scenario 6 from quickstart.md: Flatpak deployment testing (build, install, launch, feature validation)
-- [ ] T106 [US4] Measure performance under Flatpak: verify FPS, latency, memory footprint match source build
+- [X] T105 [US4] Run Scenario 6 from quickstart.md: Flatpak deployment testing (build, install, launch, feature validation)
+- [X] T106 [US4] Measure performance under Flatpak: verify FPS, latency, memory footprint match source build
 
 **Checkpoint**: Application is now packaged and distributable via Flatpak. Users can install without source compilation.
 
@@ -290,12 +290,51 @@
 - [ ] T111 [P] Add logging for all critical paths in `src/`: startup, rendering, input handling, config loading
 - [ ] T112 [P] Code cleanup and refactoring: remove TODO/FIXME comments, improve code clarity and documentation
 - [ ] T113 [P] [P] Unit test coverage for edge cases: empty config, malformed TOML, extreme parameter values
-- [ ] T114 Run full integration test suite: `cargo test --all` - all tests pass
-- [ ] T115 Run formatter: `cargo fmt --all` - all code formatted correctly
-- [ ] T116 Run linter: `cargo clippy --all` - all warnings addressed
+- [X] T114 Run full integration test suite: `cargo test --all` - all tests pass
+- [X] T115 Run formatter: `cargo fmt --all` - all code formatted correctly
+- [X] T116 Run linter: `cargo clippy --all` - all warnings addressed
 - [ ] T117 Run quickstart.md Scenario 1-6 validation: all acceptance scenarios pass manually
 - [ ] T118 Document build and installation in `README.md`: source build, Flatpak installation, quickstart usage
 - [ ] T119 Create troubleshooting guide in `docs/TROUBLESHOOTING.md` based on edge cases encountered during development
+
+---
+
+## Phase 7b: Cosmic Ambiance Effects (Priority: P2)
+
+**Goal**: Implement User Story 5 ambient cosmic effects: background starfield, Oort cloud, nebulae, and cosmic rays
+
+**Independent Test**: Run the wallpaper for 5 minutes; verify rotating background stars, a faint Oort cloud ring, at least one nebula region, and at least one cosmic ray streak are visible without FPS dropping below 30
+
+- [ ] T128 [P] Implement background starfield in `src/renderer/effects.rs`: ~250 dim stars as world-space points, rotating with plane_yaw
+- [ ] T129 [P] Implement Oort cloud generator in `src/renderer/effects.rs`: ~120 icy bodies at 1000-1400wu radius, slow angular drift, ±100wu z-scatter for spherical feel
+- [ ] T130 [P] Implement nebula blobs in `src/renderer/effects.rs`: 5-6 large soft-glowing regions (radius 200-400wu), very low alpha (0.02-0.05), colors purple/blue/pink/teal
+- [ ] T131 Implement cosmic ray effect in `src/renderer/effects.rs`: rare (30-60s), near-instant bright streak, speed 3000wu/s, 0.3s lifetime, sharp trailing fade
+- [ ] T132 Add cosmic effect unit tests in `tests/unit/renderer_tests.rs`: verify Oort body positions, nebula alpha ranges, cosmic ray lifecycle
+- [ ] T133 [P] [US5] Contract test for cosmic effects in `tests/contract/desktop_integration.rs`: verify effects render without FPS degradation
+
+---
+
+## Phase 9: User Story 6 – Widget Overlay System (Priority: P2)
+
+**Goal**: Optional floating widgets (clock, calendar) with burn-in-prevention float mode
+
+**Independent Test**: Enable clock widget in config, verify it displays current time and drifts across screen in float mode
+
+### TDD Tests for Widget System
+- [X] T134 [P] [US6] Create unit test for clock widget time accuracy in `tests/unit/widget_tests.rs`: verify clock reads system time within 1s
+- [X] T135 [P] [US6] Create unit test for Lissajous drift in `tests/unit/widget_tests.rs`: verify position changes >50px per 60 seconds
+- [X] T136 [P] [US6] Create integration test in `tests/integration/wallpaper_integration.rs`: widget renders over wallpaper without obscuring planets
+
+### Widget Implementation
+- [X] T137 [P] [US6] Create widget types in `src/widgets/mod.rs`: ClockWidget, CalendarWidget structs
+- [X] T138 [P] [US6] Implement clock rendering in `src/widgets/clock.rs`: system time display, configurable format (12h/24h, seconds), font size, color
+- [X] T139 [P] [US6] Implement calendar rendering in `src/widgets/calendar.rs`: current date display, optional month view
+- [X] T140 [US6] Implement float mode in `src/widgets/mod.rs`: Lissajous path with configurable speed ensuring >50px/60s movement
+- [X] T141 [US6] Implement manual widget drag in `src/input/mouse.rs`: left-click drag on widget moves it; position saved to config
+- [X] T142 [US6] Extend config schema in `src/config/animation.rs`: widget_enabled, widget_position, widget_format, float_mode settings
+- [X] T143 [US6] Add widget persistence in `src/config/mod.rs`: save widget position/settings to ~/.config/oled-wallpaper/config.toml on change
+
+**Checkpoint**: Clock/calendar display, drifts in float mode, position persists across restarts
 
 ---
 
@@ -309,8 +348,8 @@
 - [ ] T121 Memory leak detection: run under `valgrind` or `sanitizers`, verify no leaks
 - [ ] T122 Long-run test: run application continuously for 8 hours, verify OLED burn-in prevention works
 - [ ] T123 Multi-resolution testing: run at 1920x1080, 2560x1440, 3840x2160, verify rendering correct at all resolutions
-- [ ] T124 Create release notes in `RELEASE_NOTES.md`: features, performance metrics, known limitations
-- [ ] T125 Build final release binary: `cargo build --release`, sign if applicable
+- [X] T124 Create release notes in `RELEASE_NOTES.md`: features, performance metrics, known limitations
+- [X] T125 Build final release binary: `cargo build --release`, sign if applicable
 - [ ] T126 Create GitHub release: tag version v0.1.0, attach Flatpak manifest and release notes
 - [ ] T127 Smoke test: install from release artifacts, run through all scenarios one final time
 
