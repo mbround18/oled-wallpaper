@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OLED Wallpaper
+Comment=Start OLED Wallpaper as the desktop background at login
+Exec=oled-wallpaper
+Terminal=false
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+StartupNotify=false
+Categories=Utility;Graphics;

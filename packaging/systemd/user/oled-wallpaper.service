@@ -1,0 +1,11 @@
+[Unit]
+Description=OLED Wallpaper (user session)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/env oled-wallpaper
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
