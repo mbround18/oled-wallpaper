@@ -20,8 +20,8 @@ modules:
     build-commands:
       - . /usr/lib/sdk/rust-stable/enable.sh && cargo build --release
       - install -Dm755 target/release/oled-wallpaper /app/bin/oled-wallpaper
-      - install -Dm644 ninja.boop.OledWallpaper.desktop /app/share/applications/ninja.boop.OledWallpaper.desktop
-      - install -Dm644 ninja.boop.OledWallpaper.metainfo.xml /app/share/metainfo/ninja.boop.OledWallpaper.metainfo.xml
+      - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.desktop /app/share/applications/ninja.boop.OledWallpaper.desktop
+      - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.metainfo.xml /app/share/metainfo/ninja.boop.OledWallpaper.metainfo.xml
     sources:
       - type: dir
-        path: .
+        path: ../..
