@@ -24,6 +24,11 @@ modules:
       - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.metainfo.xml /app/share/metainfo/ninja.boop.OledWallpaper.metainfo.xml
       - install -Dm644 packaging/flatpak/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png /app/share/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png
       - install -Dm644 packaging/flatpak/icons/hicolor/scalable/apps/ninja.boop.OledWallpaper.svg /app/share/icons/hicolor/scalable/apps/ninja.boop.OledWallpaper.svg
+      # Also install metadata and icons to /usr so appstream composition tools can find them reliably
+      - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.desktop /usr/share/applications/ninja.boop.OledWallpaper.desktop
+      - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.metainfo.xml /usr/share/metainfo/ninja.boop.OledWallpaper.metainfo.xml
+      - install -Dm644 packaging/flatpak/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png /usr/share/icons/hicolor/128x128/apps/ninja.boop.OledWallpaper.png
+      - install -Dm644 packaging/flatpak/icons/hicolor/scalable/apps/ninja.boop.OledWallpaper.svg /usr/share/icons/hicolor/scalable/apps/ninja.boop.OledWallpaper.svg
     sources:
       - type: dir
         path: ../..
