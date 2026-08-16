@@ -21,16 +21,16 @@ fn clock_widget_time_accuracy_within_one_second() {
 #[test]
 fn widget_float_mode_moves_more_than_50px_over_60s() {
     let mut cfg = OverlayConfig::default();
-    cfg.widget_float_mode = true;
-    cfg.widget_float_speed = 0.08;
-    cfg.widget_position = [0.5, 0.5];
+    cfg.clock_w.float_mode = true;
+    cfg.clock_w.float_speed = 0.08;
+    cfg.clock_w.position = [0.5, 0.5];
 
     let viewport = Vec2::new(1920.0, 1080.0);
     let mut widgets = WidgetSystem::new(&cfg, viewport);
     widgets.update(0.0, viewport, &cfg);
-    let p0 = widgets.position_px();
+    let p0 = widgets.clock.pos_px;
     widgets.update(60.0, viewport, &cfg);
-    let p1 = widgets.position_px();
+    let p1 = widgets.clock.pos_px;
     assert!(
         p0.distance(p1) > 50.0,
         "widget drift too small: {}",

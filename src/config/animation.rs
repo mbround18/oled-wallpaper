@@ -162,6 +162,46 @@ impl Default for AnimationConfig {
 // ─── Overlay ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OverlayWidget {
+    pub enabled: bool,
+    pub position: [f32; 2],
+    pub color: [f32; 4],
+    pub font_scale: f32,
+    pub float_mode: bool,
+    pub float_speed: f32,
+}
+impl Default for OverlayWidget {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            position: [0.78, 0.78],
+            color: [0.82, 0.92, 1.0, 0.95],
+            font_scale: 1.0,
+            float_mode: true,
+            float_speed: 0.08,
+        }
+    }
+}
+fn default_weather_w() -> OverlayWidget {
+    OverlayWidget {
+        position: [0.02, 0.92],
+        ..Default::default()
+    }
+}
+fn default_wind_w() -> OverlayWidget {
+    OverlayWidget {
+        position: [0.02, 0.96],
+        ..Default::default()
+    }
+}
+fn default_aqi_w() -> OverlayWidget {
+    OverlayWidget {
+        position: [0.02, 0.88],
+        ..Default::default()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OverlayConfig {
     /// Show performance HUD (FPS/CPU/GPU/RAM). Also enabled by --demo flag.
     #[serde(default)]
@@ -210,6 +250,18 @@ pub struct OverlayConfig {
     /// Widget text font scale multiplier.
     #[serde(default = "default_widget_font_scale")]
     pub widget_font_scale: f32,
+
+    #[serde(default)]
+    pub clock_w: OverlayWidget,
+
+    #[serde(default = "default_weather_w")]
+    pub weather_w: OverlayWidget,
+
+    #[serde(default = "default_wind_w")]
+    pub wind_w: OverlayWidget,
+
+    #[serde(default = "default_aqi_w")]
+    pub aqi_w: OverlayWidget,
 }
 
 fn default_widget_enabled() -> bool {
@@ -252,6 +304,10 @@ impl Default for OverlayConfig {
             widget_position: default_widget_position(),
             widget_color: default_widget_color(),
             widget_font_scale: default_widget_font_scale(),
+            clock_w: OverlayWidget::default(),
+            weather_w: default_weather_w(),
+            wind_w: default_wind_w(),
+            aqi_w: default_aqi_w(),
         }
     }
 }

@@ -511,6 +511,26 @@ fn tab_galaxy(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
 
 // ── Widgets tab ──────────────────────────────────────────────────────────────
 
+fn widget_settings(ui: &mut egui::Ui, label: &str, w: &mut crate::config::OverlayWidget) {
+    ui.collapsing(egui::RichText::new(label).color(ACCENT).strong(), |ui| {
+        ui.checkbox(&mut w.enabled, "Enabled");
+        if w.enabled {
+            ui.add_space(4.0);
+            labeled_slider(ui, "X position", &mut w.position[0], 0.0..=1.0);
+            labeled_slider(ui, "Y position", &mut w.position[1], 0.0..=1.0);
+            ui.horizontal(|ui| {
+                row_label(ui, "Color  ");
+                ui.color_edit_button_rgba_unmultiplied(&mut w.color);
+            });
+            labeled_slider(ui, "Font scale", &mut w.font_scale, 0.4..=3.0);
+            ui.checkbox(&mut w.float_mode, "Float (drift)");
+            if w.float_mode {
+                labeled_slider(ui, "Drift speed", &mut w.float_speed, 0.01..=2.0);
+            }
+        }
+    });
+}
+
 fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
     ui.checkbox(
         &mut app.cfg.overlay.widget_enabled,
@@ -537,48 +557,17 @@ fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
         });
 
     ui.add_space(10.0);
-    section_heading(ui, "POSITION & MOTION");
+    section_heading(ui, "WIDGET SETTINGS");
     egui::Frame::none()
         .fill(CARD)
         .rounding(egui::Rounding::same(8.0))
         .inner_margin(egui::style::Margin::same(14.0))
         .stroke(egui::Stroke::new(1.0_f32, BORDER))
         .show(ui, |ui| {
-            ui.checkbox(&mut app.cfg.overlay.widget_float_mode, "Float (drift) mode");
-            if app.cfg.overlay.widget_float_mode {
-                labeled_slider(
-                    ui,
-                    "Drift speed ",
-                    &mut app.cfg.overlay.widget_float_speed,
-                    0.01..=2.0,
-                );
-            }
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                row_label(ui, "Position X");
-                ui.add(egui::Slider::new(
-                    &mut app.cfg.overlay.widget_position[0],
-                    0.0..=1.0,
-                ));
-            });
-            ui.horizontal(|ui| {
-                row_label(ui, "Position Y");
-                ui.add(egui::Slider::new(
-                    &mut app.cfg.overlay.widget_position[1],
-                    0.0..=1.0,
-                ));
-            });
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                row_label(ui, "Text color  ");
-                ui.color_edit_button_rgba_unmultiplied(&mut app.cfg.overlay.widget_color);
-            });
-            labeled_slider(
-                ui,
-                "Font scale  ",
-                &mut app.cfg.overlay.widget_font_scale,
-                0.5..=3.0,
-            );
+            widget_settings(ui, "Clock", &mut app.cfg.overlay.clock_w);
+            widget_settings(ui, "Weather", &mut app.cfg.overlay.weather_w);
+            widget_settings(ui, "Wind", &mut app.cfg.overlay.wind_w);
+            widget_settings(ui, "AQI", &mut app.cfg.overlay.aqi_w);
         });
 
     ui.add_space(10.0);
@@ -589,7 +578,6 @@ fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
         egui::Sense::hover(),
     );
     let painter = ui.painter_at(rect);
-    // Starfield background
     painter.rect_filled(rect, 6.0, VOID);
     painter.rect_stroke(rect, 6.0, egui::Stroke::new(1.0_f32, BORDER));
     // Tiny stars
@@ -608,33 +596,44 @@ fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
             egui::Color32::from_rgba_premultiplied(200, 210, 255, alpha),
         );
     }
-    // Widget dot at configured position
-    let float_offset = if app.cfg.overlay.widget_float_mode {
-        let s = app.cfg.overlay.widget_float_speed;
-        egui::vec2((t * s).sin() * 12.0, (t * s * 1.37).cos() * 8.0)
-    } else {
-        egui::vec2(0.0, 0.0)
-    };
-    let wx = rect.left() + app.cfg.overlay.widget_position[0] * rect.width();
-    let wy = rect.top() + app.cfg.overlay.widget_position[1] * rect.height();
-    let wpos = egui::pos2(wx, wy) + float_offset;
-    let [r, g, b, a] = app.cfg.overlay.widget_color;
-    let wcol = egui::Color32::from_rgba_unmultiplied(
-        (r * 255.0) as u8,
-        (g * 255.0) as u8,
-        (b * 255.0) as u8,
-        (a * 255.0) as u8,
-    );
-    painter.circle_filled(wpos, 14.0, wcol.linear_multiply(0.3));
-    painter.circle_stroke(wpos, 14.0, egui::Stroke::new(1.5_f32, wcol));
-    let galactic = egui::FontId::proportional(11.0);
-    painter.text(
-        wpos + egui::vec2(0.0, -26.0),
-        egui::Align2::CENTER_CENTER,
-        "12:34:56",
-        galactic,
-        wcol,
-    );
+    // Draw a dot for each widget at its configured position
+    let widgets = [
+        (&app.cfg.overlay.clock_w, "12:34"),
+        (&app.cfg.overlay.weather_w, "☀ 22C"),
+        (&app.cfg.overlay.wind_w, "Wind"),
+        (&app.cfg.overlay.aqi_w, "AQI"),
+    ];
+    for (w, label) in &widgets {
+        if !w.enabled {
+            continue;
+        }
+        let float_offset = if w.float_mode {
+            let s = w.float_speed;
+            egui::vec2((t * s).sin() * 12.0, (t * s * 1.37).cos() * 8.0)
+        } else {
+            egui::vec2(0.0, 0.0)
+        };
+        let wx = rect.left() + w.position[0] * rect.width();
+        let wy = rect.top() + w.position[1] * rect.height();
+        let wpos = egui::pos2(wx, wy) + float_offset;
+        let [r, g, b, a] = w.color;
+        let wcol = egui::Color32::from_rgba_unmultiplied(
+            (r * 255.0) as u8,
+            (g * 255.0) as u8,
+            (b * 255.0) as u8,
+            (a * 255.0) as u8,
+        );
+        painter.circle_filled(wpos, 10.0, wcol.linear_multiply(0.3));
+        painter.circle_stroke(wpos, 10.0, egui::Stroke::new(1.5_f32, wcol));
+        let galactic = egui::FontId::proportional(9.0);
+        painter.text(
+            wpos + egui::vec2(0.0, -20.0),
+            egui::Align2::CENTER_CENTER,
+            label,
+            galactic,
+            wcol,
+        );
+    }
 }
 
 // ── Weather tab ──────────────────────────────────────────────────────────────
@@ -747,18 +746,20 @@ fn tab_weather(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                     if btn.clicked() {
                         spawn_locate(app.locate_status.clone());
                     }
-                    dim_label(ui, "Uses your external IP address via ipinfo.io → ip-api.com fallback");
+                    dim_label(
+                        ui,
+                        "Uses your external IP address via ipinfo.io → ip-api.com fallback",
+                    );
                 }
 
                 LocateStatus::Working => {
                     ui.horizontal(|ui| {
                         ui.spinner();
-                        ui.label(
-                            egui::RichText::new("Locating via IP geolocation…").color(DIM),
-                        );
+                        ui.label(egui::RichText::new("Locating via IP geolocation…").color(DIM));
                     });
                     // Keep repainting until done
-                    ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(200));
                 }
 
                 LocateStatus::Found { lat, lon, label } => {
@@ -772,25 +773,17 @@ fn tab_weather(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                         .stroke(egui::Stroke::new(1.0_f32, GLOW_GREEN))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
+                                ui.label(egui::RichText::new("◉").color(GLOW_GREEN).strong());
                                 ui.label(
-                                    egui::RichText::new("◉")
-                                        .color(GLOW_GREEN)
-                                        .strong(),
-                                );
-                                ui.label(
-                                    egui::RichText::new(format!(
-                                        "{label}  ({lat:.4}, {lon:.4})"
-                                    ))
-                                    .color(STAR),
+                                    egui::RichText::new(format!("{label}  ({lat:.4}, {lon:.4})"))
+                                        .color(STAR),
                                 );
                             });
                             ui.add_space(6.0);
                             ui.horizontal(|ui| {
                                 let apply_btn = ui.add(
                                     egui::Button::new(
-                                        egui::RichText::new("  Apply  ")
-                                            .color(STAR)
-                                            .strong(),
+                                        egui::RichText::new("  Apply  ").color(STAR).strong(),
                                     )
                                     .fill(ACCENT_DIM)
                                     .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
@@ -803,10 +796,7 @@ fn tab_weather(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                                         Some((format!("Location set to {label}"), 0.0));
                                 }
 
-                                if ui
-                                    .button(egui::RichText::new("Retry").color(DIM))
-                                    .clicked()
-                                {
+                                if ui.button(egui::RichText::new("Retry").color(DIM)).clicked() {
                                     spawn_locate(app.locate_status.clone());
                                 }
                             });

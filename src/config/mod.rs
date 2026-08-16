@@ -1,7 +1,7 @@
 //! Configuration loading — TOML file at ~/.config/oled-wallpaper/config.toml
 
 pub mod animation;
-pub use animation::{AnimationConfig, OverlayConfig};
+pub use animation::{AnimationConfig, OverlayConfig, OverlayWidget};
 
 mod weather_config;
 pub use weather_config::{WeatherConfig, WeatherProvider};

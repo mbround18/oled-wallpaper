@@ -1,88 +1,141 @@
-use chrono::{DateTime, Local};
+use chrono::Local;
 use glam::Vec2;
 
-use crate::config::OverlayConfig;
-use crate::weather::{weather_widget_text, WeatherState};
+use crate::config::WeatherConfig;
+use crate::config::{OverlayConfig, OverlayWidget};
+use crate::weather::WeatherState;
 
 pub mod calendar;
 pub mod clock;
 
-const WIDGET_WIDTH: f32 = 400.0;
-const WIDGET_HEIGHT: f32 = 130.0;
+// ─── Per-widget text generators ──────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy)]
-pub struct ClockWidget {
-    pub use_24h: bool,
-    pub show_seconds: bool,
+pub fn clock_text(cfg: &OverlayConfig) -> Option<String> {
+    if !cfg.show_clock {
+        return None;
+    }
+    Some(clock::format_clock(
+        Local::now(),
+        cfg.clock_24h,
+        cfg.clock_show_seconds,
+    ))
 }
 
-impl ClockWidget {
-    pub fn render(&self, now: DateTime<Local>) -> String {
-        clock::format_clock(now, self.use_24h, self.show_seconds)
+pub fn calendar_text(cfg: &OverlayConfig) -> Option<String> {
+    if !cfg.show_calendar {
+        return None;
+    }
+    Some(calendar::format_calendar(
+        Local::now(),
+        cfg.calendar_month_view,
+    ))
+}
+
+pub fn weather_temp_text(ws: &WeatherState, wc: &WeatherConfig) -> Option<String> {
+    let w = ws.weather.as_ref()?;
+    let temp = w.temperature_display(wc.units_fahrenheit);
+    let cond = w.condition.label();
+    let icon = condition_icon_text(w.condition.clone());
+    Some(format!("{icon} {temp} {cond}"))
+}
+
+pub fn weather_wind_text(ws: &WeatherState) -> Option<String> {
+    let w = ws.weather.as_ref()?;
+    if w.wind_kmh < 0.5 {
+        return None;
+    }
+    Some(format!("Wind  {:.0} km/h", w.wind_kmh))
+}
+
+pub fn weather_aqi_text(ws: &WeatherState) -> Option<String> {
+    let air = ws.air.as_ref()?;
+    Some(format!("AQI {}  {}", air.aqi, air.level.label()))
+}
+
+/// Alias used by tests
+pub use weather_aqi_text as aqi_text;
+
+// ─── Icon text ────────────────────────────────────────────────────────────────
+
+use crate::weather::WeatherCondition;
+
+pub fn condition_icon_text(cond: WeatherCondition) -> &'static str {
+    match cond {
+        WeatherCondition::Clear => "\u{2600}",
+        WeatherCondition::PartlyCloudy => "\u{26C5}",
+        WeatherCondition::Cloudy => "\u{2601}",
+        WeatherCondition::Overcast => "\u{2601}",
+        WeatherCondition::Fog => "~",
+        WeatherCondition::Drizzle => "\u{2614}",
+        WeatherCondition::Rain => "\u{2602}",
+        WeatherCondition::HeavyRain => "\u{2602}\u{2602}",
+        WeatherCondition::Thunderstorm => "\u{26A1}",
+        WeatherCondition::Snow => "\u{2744}",
+        WeatherCondition::Unknown => "?",
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct CalendarWidget {
-    pub month_view: bool,
-}
+// ─── Draggable widget instance ─────────────────────────────────────────────
 
-impl CalendarWidget {
-    pub fn render(&self, now: DateTime<Local>) -> String {
-        calendar::format_calendar(now, self.month_view)
-    }
-}
+const W: f32 = 420.0;
+const H: f32 = 50.0;
 
 #[derive(Debug, Clone)]
-pub struct WidgetSystem {
-    pos_px: Vec2,
+pub struct DraggableWidget {
+    pub pos_px: Vec2,
     anchor_px: Vec2,
-    drag_offset_px: Vec2,
+    drag_offset: Vec2,
     dragging: bool,
 }
 
-impl WidgetSystem {
-    pub fn new(cfg: &OverlayConfig, viewport: Vec2) -> Self {
+impl DraggableWidget {
+    pub fn from_cfg(cfg: &OverlayWidget, viewport: Vec2) -> Self {
         let anchor = Vec2::new(
-            cfg.widget_position[0].clamp(0.0, 1.0) * viewport.x,
-            cfg.widget_position[1].clamp(0.0, 1.0) * viewport.y,
+            cfg.position[0].clamp(0.0, 1.0) * viewport.x,
+            cfg.position[1].clamp(0.0, 1.0) * viewport.y,
         );
         Self {
             pos_px: anchor,
             anchor_px: anchor,
-            drag_offset_px: Vec2::ZERO,
+            drag_offset: Vec2::ZERO,
             dragging: false,
         }
     }
 
-    pub fn update(&mut self, t: f32, viewport: Vec2, cfg: &OverlayConfig) {
+    pub fn update(&mut self, t: f32, viewport: Vec2, cfg: &OverlayWidget) {
         if self.dragging {
             return;
         }
-        if cfg.widget_float_mode {
-            let speed = cfg.widget_float_speed.max(0.01);
-            let ax = 110.0;
-            let ay = 78.0;
+        if cfg.float_mode {
+            let s = cfg.float_speed.max(0.01);
             self.pos_px =
-                self.anchor_px + Vec2::new((t * speed).sin() * ax, (t * speed * 1.37).cos() * ay);
-            self.clamp_to_view(viewport);
+                self.anchor_px + Vec2::new((t * s).sin() * 80.0, (t * s * 1.37).cos() * 55.0);
         } else {
             self.pos_px = self.anchor_px;
-            self.clamp_to_view(viewport);
         }
+        self.pos_px.x = self.pos_px.x.clamp(0.0, (viewport.x - W).max(0.0));
+        self.pos_px.y = self.pos_px.y.clamp(0.0, (viewport.y - H).max(0.0));
     }
 
-    pub fn begin_drag(&mut self, cursor_px: Vec2) {
+    pub fn hit_test(&self, cursor: Vec2) -> bool {
+        cursor.x >= self.pos_px.x
+            && cursor.x <= self.pos_px.x + W
+            && cursor.y >= self.pos_px.y
+            && cursor.y <= self.pos_px.y + H
+    }
+
+    pub fn begin_drag(&mut self, cursor: Vec2) {
         self.dragging = true;
-        self.drag_offset_px = cursor_px - self.pos_px;
+        self.drag_offset = cursor - self.pos_px;
     }
 
-    pub fn drag_to(&mut self, cursor_px: Vec2, viewport: Vec2) {
+    pub fn drag_to(&mut self, cursor: Vec2, viewport: Vec2) {
         if !self.dragging {
             return;
         }
-        self.pos_px = cursor_px - self.drag_offset_px;
-        self.clamp_to_view(viewport);
+        self.pos_px = cursor - self.drag_offset;
+        self.pos_px.x = self.pos_px.x.clamp(0.0, (viewport.x - W).max(0.0));
+        self.pos_px.y = self.pos_px.y.clamp(0.0, (viewport.y - H).max(0.0));
     }
 
     pub fn end_drag(&mut self) {
@@ -94,65 +147,102 @@ impl WidgetSystem {
         self.dragging
     }
 
-    pub fn hit_test(&self, cursor_px: Vec2) -> bool {
-        cursor_px.x >= self.pos_px.x
-            && cursor_px.x <= self.pos_px.x + WIDGET_WIDTH
-            && cursor_px.y >= self.pos_px.y
-            && cursor_px.y <= self.pos_px.y + WIDGET_HEIGHT
-    }
-
-    pub fn position_px(&self) -> Vec2 {
-        self.pos_px
-    }
-
     pub fn position_norm(&self, viewport: Vec2) -> [f32; 2] {
-        let x = (self.anchor_px.x / viewport.x.max(1.0)).clamp(0.0, 1.0);
-        let y = (self.anchor_px.y / viewport.y.max(1.0)).clamp(0.0, 1.0);
-        [x, y]
+        [
+            (self.anchor_px.x / viewport.x.max(1.0)).clamp(0.0, 1.0),
+            (self.anchor_px.y / viewport.y.max(1.0)).clamp(0.0, 1.0),
+        ]
+    }
+}
+
+// ─── Multi-widget system ──────────────────────────────────────────────────────
+
+pub struct WidgetSystem {
+    pub clock: DraggableWidget,
+    pub weather: DraggableWidget,
+    pub wind: DraggableWidget,
+    pub aqi: DraggableWidget,
+}
+
+impl WidgetSystem {
+    pub fn new(cfg: &OverlayConfig, viewport: Vec2) -> Self {
+        Self {
+            clock: DraggableWidget::from_cfg(&cfg.clock_w, viewport),
+            weather: DraggableWidget::from_cfg(&cfg.weather_w, viewport),
+            wind: DraggableWidget::from_cfg(&cfg.wind_w, viewport),
+            aqi: DraggableWidget::from_cfg(&cfg.aqi_w, viewport),
+        }
     }
 
-    pub fn text(
-        &self,
-        cfg: &OverlayConfig,
-        weather: Option<&WeatherState>,
-        weather_cfg: Option<&crate::config::WeatherConfig>,
-    ) -> String {
-        let now = Local::now();
-        let clock = ClockWidget {
-            use_24h: cfg.clock_24h,
-            show_seconds: cfg.clock_show_seconds,
-        };
-        let calendar = CalendarWidget {
-            month_view: cfg.calendar_month_view,
-        };
-        let mut lines = Vec::new();
-        if cfg.show_clock {
-            lines.push(clock.render(now));
-        }
-        if cfg.show_calendar {
-            lines.push(calendar.render(now));
-        }
-        // Weather lines
-        if let (Some(ws), Some(wc)) = (weather, weather_cfg) {
-            if wc.enabled {
-                if let Some(wtext) = weather_widget_text(ws, wc) {
-                    lines.push(wtext);
-                } else if ws.error.is_some() {
-                    lines.push("Weather: unavailable".to_string());
-                }
-            }
-        }
-        lines.join("\n")
+    pub fn update(&mut self, t: f32, viewport: Vec2, cfg: &OverlayConfig) {
+        self.clock.update(t, viewport, &cfg.clock_w);
+        self.weather.update(t, viewport, &cfg.weather_w);
+        self.wind.update(t, viewport, &cfg.wind_w);
+        self.aqi.update(t, viewport, &cfg.aqi_w);
     }
 
-    fn clamp_to_view(&mut self, viewport: Vec2) {
-        self.pos_px.x = self
-            .pos_px
-            .x
-            .clamp(0.0, (viewport.x - WIDGET_WIDTH).max(0.0));
-        self.pos_px.y = self
-            .pos_px
-            .y
-            .clamp(0.0, (viewport.y - WIDGET_HEIGHT).max(0.0));
+    pub fn hit_test(&self, cursor: Vec2, cfg: &OverlayConfig) -> Option<WidgetId> {
+        if cfg.clock_w.enabled && self.clock.hit_test(cursor) {
+            return Some(WidgetId::Clock);
+        }
+        if cfg.weather_w.enabled && self.weather.hit_test(cursor) {
+            return Some(WidgetId::Weather);
+        }
+        if cfg.wind_w.enabled && self.wind.hit_test(cursor) {
+            return Some(WidgetId::Wind);
+        }
+        if cfg.aqi_w.enabled && self.aqi.hit_test(cursor) {
+            return Some(WidgetId::Aqi);
+        }
+        None
     }
+
+    pub fn begin_drag(&mut self, id: WidgetId, cursor: Vec2) {
+        self.widget_mut(id).begin_drag(cursor);
+    }
+    pub fn drag_to(&mut self, id: WidgetId, cursor: Vec2, viewport: Vec2) {
+        self.widget_mut(id).drag_to(cursor, viewport);
+    }
+    pub fn end_drag(&mut self, id: WidgetId) {
+        self.widget_mut(id).end_drag();
+    }
+    pub fn any_dragging(&self) -> Option<WidgetId> {
+        if self.clock.is_dragging() {
+            return Some(WidgetId::Clock);
+        }
+        if self.weather.is_dragging() {
+            return Some(WidgetId::Weather);
+        }
+        if self.wind.is_dragging() {
+            return Some(WidgetId::Wind);
+        }
+        if self.aqi.is_dragging() {
+            return Some(WidgetId::Aqi);
+        }
+        None
+    }
+
+    fn widget_mut(&mut self, id: WidgetId) -> &mut DraggableWidget {
+        match id {
+            WidgetId::Clock => &mut self.clock,
+            WidgetId::Weather => &mut self.weather,
+            WidgetId::Wind => &mut self.wind,
+            WidgetId::Aqi => &mut self.aqi,
+        }
+    }
+
+    pub fn write_positions(&self, cfg: &mut OverlayConfig, viewport: Vec2) {
+        cfg.clock_w.position = self.clock.position_norm(viewport);
+        cfg.weather_w.position = self.weather.position_norm(viewport);
+        cfg.wind_w.position = self.wind.position_norm(viewport);
+        cfg.aqi_w.position = self.aqi.position_norm(viewport);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WidgetId {
+    Clock,
+    Weather,
+    Wind,
+    Aqi,
 }

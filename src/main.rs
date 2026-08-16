@@ -26,7 +26,10 @@ use oled_wallpaper::physics::{body::CelestialBody, orbit::Orbit, PhysicsSimulato
 use oled_wallpaper::renderer::camera::Camera;
 use oled_wallpaper::runtime::acquire_wallpaper_lock;
 use oled_wallpaper::weather::{start_weather_thread, WeatherInfluence, WeatherState};
-use oled_wallpaper::widgets::WidgetSystem;
+use oled_wallpaper::widgets::{
+    calendar_text, clock_text, weather_aqi_text, weather_temp_text, weather_wind_text, WidgetId,
+    WidgetSystem,
+};
 
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Resolution, Shaping,
@@ -923,6 +926,7 @@ fn main() {
     let mut pulses: Vec<PulseEffect> = Vec::new();
     let mut widgets = WidgetSystem::new(&app_cfg.overlay, Vec2::new(width as f32, height as f32));
     let mut widget_dragged_since_press = false;
+    let mut dragging_widget: Option<WidgetId> = None;
 
     // Scale: fit outermost orbit (820wu) in 88% of screen's short half-axis,
     // then apply camera_zoom from config (zoom > 1 = tighter view, < 1 = wider)
@@ -957,20 +961,25 @@ fn main() {
                 } => match state {
                     ElementState::Pressed => {
                         widget_dragged_since_press = false;
-                        if app_cfg.overlay.widget_enabled && widgets.hit_test(last_cursor) {
-                            widgets.begin_drag(last_cursor);
-                            mouse_down = false;
+                        if app_cfg.overlay.widget_enabled {
+                            if let Some(id) = widgets.hit_test(last_cursor, &app_cfg.overlay) {
+                                dragging_widget = Some(id);
+                                widgets.begin_drag(id, last_cursor);
+                                mouse_down = false;
+                            } else {
+                                mouse_down = true;
+                            }
                         } else {
                             mouse_down = true;
                         }
                     }
                     ElementState::Released => {
                         mouse_down = false;
-                        if widgets.is_dragging() {
-                            widgets.end_drag();
+                        if let Some(id) = dragging_widget.take() {
+                            widgets.end_drag(id);
                             if widget_dragged_since_press {
-                                app_cfg.overlay.widget_position = widgets
-                                    .position_norm(Vec2::new(cfg.width as f32, cfg.height as f32));
+                                let vp = Vec2::new(cfg.width as f32, cfg.height as f32);
+                                widgets.write_positions(&mut app_cfg.overlay, vp);
                                 let _ = app_cfg.save();
                             }
                         }
@@ -981,16 +990,16 @@ fn main() {
                     ..
                 } => {
                     let cur = Vec2::new(position.x as f32, position.y as f32);
-                    if widgets.is_dragging() {
-                        widgets.drag_to(cur, Vec2::new(cfg.width as f32, cfg.height as f32));
+                    if let Some(id) = dragging_widget {
+                        let vp = Vec2::new(cfg.width as f32, cfg.height as f32);
+                        widgets.drag_to(id, cur, vp);
                         if (cur - last_cursor).length() > 0.25 {
                             widget_dragged_since_press = true;
                         }
                     } else if mouse_down {
                         let delta = cur - last_cursor;
-                        // Convert pixel delta → NDC delta and accumulate
                         pan_ndc.x += delta.x / (cfg.width as f32 * 0.5);
-                        pan_ndc.y -= delta.y / (cfg.height as f32 * 0.5); // y flipped
+                        pan_ndc.y -= delta.y / (cfg.height as f32 * 0.5);
                     }
                     last_cursor = cur;
                 }
@@ -1392,13 +1401,8 @@ fn main() {
 
                     // ── Prepare text overlays (HUD + widgets) ───────────────
                     let show_hud = demo_dur.is_some() || app_cfg.overlay.show_hud;
-                    let show_widgets = app_cfg.overlay.widget_enabled
-                        && (app_cfg.overlay.show_clock
-                            || app_cfg.overlay.show_calendar
-                            || app_cfg.weather.enabled);
 
                     let mut hud_pos: Option<(f32, f32)> = None;
-                    let mut widget_style: Option<(f32, f32, GlyphColor)> = None;
                     let mut areas: Vec<TextArea> = Vec::new();
 
                     let hud_buf_opt = if show_hud {
@@ -1426,44 +1430,155 @@ fn main() {
                         None
                     };
 
-                    let widget_buf_opt = if show_widgets {
-                        let ws_guard = weather_state.lock().ok();
-                        let ws_ref = ws_guard.as_deref();
-                        let text = widgets.text(&app_cfg.overlay, ws_ref, Some(&app_cfg.weather));
-                        if !text.is_empty() {
-                            let font_size = ((cfg.height as f32 * 0.024)
-                                * app_cfg.overlay.widget_font_scale)
-                                .clamp(12.0, 48.0);
-                            let line_h = font_size * 1.28;
-                            let mut buf =
-                                Buffer::new(&mut font_system, Metrics::new(font_size, line_h));
-                            buf.set_size(&mut font_system, 420.0, 180.0);
-                            buf.set_text(
-                                &mut font_system,
-                                &text,
-                                Attrs::new().family(Family::SansSerif),
-                                Shaping::Basic,
-                            );
-                            buf.shape_until_scroll(&mut font_system);
-                            let wp = widgets.position_px();
-                            let [wr, wg, wb, wa] = app_cfg.overlay.widget_color;
-                            let col = GlyphColor::rgba(
-                                (wr.clamp(0.0, 1.0) * 255.0) as u8,
-                                (wg.clamp(0.0, 1.0) * 255.0) as u8,
-                                (wb.clamp(0.0, 1.0) * 255.0) as u8,
-                                (wa.clamp(0.0, 1.0) * 255.0) as u8,
-                            );
-                            widget_style = Some((wp.x, wp.y, col));
-                            Some(buf)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
+                    // ── Per-widget text areas ────────────────────────────────────────────
+                    let base_font_size = (cfg.height as f32 * 0.024).clamp(12.0, 48.0);
+                    let mut widget_bufs: Vec<(glyphon::Buffer, Vec2, GlyphColor)> = Vec::new();
 
-                    // Emit a short-lived info log for E2E checks indicating widget visibility
-                    if widget_buf_opt.is_some() {
+                    if app_cfg.overlay.widget_enabled {
+                        let ws_guard = weather_state.lock().ok();
+                        let ws = ws_guard.as_deref();
+
+                        if app_cfg.overlay.clock_w.enabled {
+                            if let Some(text) = clock_text(&app_cfg.overlay) {
+                                let fs = (base_font_size * app_cfg.overlay.clock_w.font_scale)
+                                    .clamp(10.0, 80.0);
+                                let mut buf =
+                                    Buffer::new(&mut font_system, Metrics::new(fs, fs * 1.3));
+                                buf.set_size(&mut font_system, 400.0, fs * 2.5);
+                                buf.set_text(
+                                    &mut font_system,
+                                    &text,
+                                    Attrs::new().family(Family::SansSerif),
+                                    Shaping::Basic,
+                                );
+                                buf.shape_until_scroll(&mut font_system);
+                                let [r, g, b, a] = app_cfg.overlay.clock_w.color;
+                                let col = GlyphColor::rgba(
+                                    (r * 255.0) as u8,
+                                    (g * 255.0) as u8,
+                                    (b * 255.0) as u8,
+                                    (a * 255.0) as u8,
+                                );
+                                widget_bufs.push((buf, widgets.clock.pos_px, col));
+                            }
+                        }
+                        if app_cfg.overlay.show_calendar {
+                            if let Some(text) = calendar_text(&app_cfg.overlay) {
+                                let fs =
+                                    (base_font_size * app_cfg.overlay.clock_w.font_scale * 0.9)
+                                        .clamp(10.0, 60.0);
+                                let mut buf =
+                                    Buffer::new(&mut font_system, Metrics::new(fs, fs * 1.3));
+                                buf.set_size(&mut font_system, 400.0, fs * 2.5);
+                                buf.set_text(
+                                    &mut font_system,
+                                    &text,
+                                    Attrs::new().family(Family::SansSerif),
+                                    Shaping::Basic,
+                                );
+                                buf.shape_until_scroll(&mut font_system);
+                                let [r, g, b, a] = app_cfg.overlay.clock_w.color;
+                                let col = GlyphColor::rgba(
+                                    (r * 255.0) as u8,
+                                    (g * 255.0) as u8,
+                                    (b * 255.0) as u8,
+                                    (a * 255.0) as u8,
+                                );
+                                let pos = widgets.clock.pos_px + Vec2::new(0.0, fs * 1.5);
+                                widget_bufs.push((buf, pos, col));
+                            }
+                        }
+
+                        if app_cfg.weather.enabled {
+                            if let Some(ws) = ws {
+                                if app_cfg.overlay.weather_w.enabled {
+                                    if let Some(text) = weather_temp_text(ws, &app_cfg.weather) {
+                                        let fs = (base_font_size
+                                            * app_cfg.overlay.weather_w.font_scale)
+                                            .clamp(10.0, 80.0);
+                                        let mut buf = Buffer::new(
+                                            &mut font_system,
+                                            Metrics::new(fs, fs * 1.3),
+                                        );
+                                        buf.set_size(&mut font_system, 480.0, fs * 2.5);
+                                        buf.set_text(
+                                            &mut font_system,
+                                            &text,
+                                            Attrs::new().family(Family::SansSerif),
+                                            Shaping::Basic,
+                                        );
+                                        buf.shape_until_scroll(&mut font_system);
+                                        let [r, g, b, a] = app_cfg.overlay.weather_w.color;
+                                        let col = GlyphColor::rgba(
+                                            (r * 255.0) as u8,
+                                            (g * 255.0) as u8,
+                                            (b * 255.0) as u8,
+                                            (a * 255.0) as u8,
+                                        );
+                                        widget_bufs.push((buf, widgets.weather.pos_px, col));
+                                    }
+                                }
+                                if app_cfg.overlay.wind_w.enabled {
+                                    if let Some(text) = weather_wind_text(ws) {
+                                        let fs = (base_font_size
+                                            * app_cfg.overlay.wind_w.font_scale)
+                                            .clamp(10.0, 80.0);
+                                        let mut buf = Buffer::new(
+                                            &mut font_system,
+                                            Metrics::new(fs, fs * 1.3),
+                                        );
+                                        buf.set_size(&mut font_system, 320.0, fs * 2.5);
+                                        buf.set_text(
+                                            &mut font_system,
+                                            &text,
+                                            Attrs::new().family(Family::SansSerif),
+                                            Shaping::Basic,
+                                        );
+                                        buf.shape_until_scroll(&mut font_system);
+                                        let [r, g, b, a] = app_cfg.overlay.wind_w.color;
+                                        let col = GlyphColor::rgba(
+                                            (r * 255.0) as u8,
+                                            (g * 255.0) as u8,
+                                            (b * 255.0) as u8,
+                                            (a * 255.0) as u8,
+                                        );
+                                        widget_bufs.push((buf, widgets.wind.pos_px, col));
+                                    }
+                                }
+                                if app_cfg.overlay.aqi_w.enabled && app_cfg.weather.show_aqi {
+                                    if let Some(text) = weather_aqi_text(ws) {
+                                        let fs = (base_font_size
+                                            * app_cfg.overlay.aqi_w.font_scale)
+                                            .clamp(10.0, 80.0);
+                                        let mut buf = Buffer::new(
+                                            &mut font_system,
+                                            Metrics::new(fs, fs * 1.3),
+                                        );
+                                        buf.set_size(&mut font_system, 320.0, fs * 2.5);
+                                        buf.set_text(
+                                            &mut font_system,
+                                            &text,
+                                            Attrs::new().family(Family::SansSerif),
+                                            Shaping::Basic,
+                                        );
+                                        buf.shape_until_scroll(&mut font_system);
+                                        let [r, g, b, a] = app_cfg.overlay.aqi_w.color;
+                                        let col = GlyphColor::rgba(
+                                            (r * 255.0) as u8,
+                                            (g * 255.0) as u8,
+                                            (b * 255.0) as u8,
+                                            (a * 255.0) as u8,
+                                        );
+                                        widget_bufs.push((buf, widgets.aqi.pos_px, col));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let show_widgets = !widget_bufs.is_empty();
+
+                    if show_widgets {
                         tracing::info!("Widget overlay present");
                     } else {
                         tracing::info!("Widget overlay absent");
@@ -1485,11 +1600,11 @@ fn main() {
                         });
                     }
 
-                    if let (Some(ref b), Some((left, top, col))) = (&widget_buf_opt, widget_style) {
+                    for (ref b, pos, col) in &widget_bufs {
                         areas.push(TextArea {
                             buffer: b,
-                            left,
-                            top,
+                            left: pos.x,
+                            top: pos.y,
                             scale: 1.0,
                             bounds: TextBounds {
                                 left: 0,
@@ -1497,7 +1612,7 @@ fn main() {
                                 right: cfg.width as i32,
                                 bottom: cfg.height as i32,
                             },
-                            default_color: col,
+                            default_color: *col,
                         });
                     }
 
