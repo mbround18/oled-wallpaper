@@ -73,18 +73,25 @@ pub fn autostart_info() -> AutostartInfo {
     let file_exists = path.exists();
 
     let exec_reachable = if is_flatpak() {
-        // Check flatpak is on PATH and the app is installed
+        // Must check the user installation — system-wide may not exist.
+        // Try --user first, then fall back to checking the system install.
         which_ok("flatpak")
-            && std::process::Command::new("flatpak")
-                .args(["info", FLATPAK_APP_ID])
+            && (std::process::Command::new("flatpak")
+                .args(["--user", "info", FLATPAK_APP_ID])
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status()
                 .map(|s| s.success())
                 .unwrap_or(false)
+                || std::process::Command::new("flatpak")
+                    .args(["info", FLATPAK_APP_ID])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false))
     } else {
         let bin: &str = exec_line.trim();
-        // Absolute path check first, then PATH lookup
         if bin.starts_with('/') {
             Path::new(bin).exists()
         } else {

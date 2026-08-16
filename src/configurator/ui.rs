@@ -481,18 +481,41 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                         ui.label(egui::RichText::new(ctx_text).color(DIM).small());
 
                         if !info.exec_reachable {
-                            ui.add_space(4.0);
-                            ui.label(
-                                egui::RichText::new(
-                                    if info.is_flatpak {
-                                        "⚠ Flatpak app not installed user-wide — run 'make install-bundle' first"
-                                    } else {
-                                        "⚠ Binary not found — install the app or the PATH may differ at login"
-                                    }
-                                )
-                                .color(DANGER)
-                                .small(),
-                            );
+                            ui.add_space(6.0);
+                            if info.is_flatpak {
+                                ui.label(
+                                    egui::RichText::new("⚠  App not found in your Flatpak install.")
+                                        .color(DANGER).small(),
+                                );
+                                ui.add_space(2.0);
+                                ui.label(
+                                    egui::RichText::new("To fix, re-install the bundle:")
+                                        .color(DIM).small(),
+                                );
+                                ui.add_space(2.0);
+                                let cmd = format!(
+                                    "flatpak install --user --reinstall {}",
+                                    crate::runtime::autostart_exec().replace("flatpak run ", "")
+                                );
+                                // Selectable label so the user can copy it
+                                ui.add(
+                                    egui::TextEdit::multiline(&mut cmd.as_str())
+                                        .font(egui::FontId::monospace(11.0))
+                                        .desired_rows(1)
+                                        .desired_width(f32::INFINITY)
+                                );
+                            } else {
+                                ui.label(
+                                    egui::RichText::new("⚠  Binary not found on this machine.")
+                                        .color(DANGER).small(),
+                                );
+                                ui.label(
+                                    egui::RichText::new(
+                                        "Make sure OLED Wallpaper is installed and on your PATH."
+                                    )
+                                    .color(DIM).small(),
+                                );
+                            }
                         }
                     });
             }
