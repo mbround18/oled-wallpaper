@@ -32,7 +32,7 @@
 - [X] T003 [P] Configure Cargo.toml with release optimization flags for performance
 - [X] T004 [P] Setup CI/CD: GitHub Actions workflow for running tests and building releases
 - [X] T005 [P] Configure linting: `rustfmt` and `clippy` configuration files
-- [X] T006 Create Flatpak manifest (org.example.OledWallpaper.yml) in repository root with core permissions
+- [X] T006 Create Flatpak manifest (ninja.boop.OledWallpaper.yml) in repository root with core permissions
 - [X] T007 Create AppImage build configuration (if applicable) for alternate distribution method
 
 ---
@@ -254,19 +254,19 @@
 
 ### Build Configuration for User Story 4
 
-- [X] T095 [US4] Finalize Flatpak manifest at `org.example.OledWallpaper.yml`: add finish-args for display, input, config directory permissions
+- [X] T095 [US4] Finalize Flatpak manifest at `ninja.boop.OledWallpaper.yml`: add finish-args for display, input, config directory permissions
 - [X] T096 [US4] Create Flatpak build script in `build-flatpak.sh`: orchestrates `flatpak-builder` commands
-- [X] T097 [US4] Test Flatpak build locally: `flatpak-builder --user build org.example.OledWallpaper.yml`
+- [X] T097 [US4] Test Flatpak build locally: `flatpak-builder --user build ninja.boop.OledWallpaper.yml`
 - [X] T098 [US4] Create AppImage build configuration (optional): if building AppImage format alternative
 - [X] T099 [US4] Create release build in Cargo.toml: optimize for size and performance (`opt-level = 3`, `lto = true`)
 
 ### Deployment & Launch Testing for User Story 4
 
-- [X] T100 [US4] Install Flatpak app: `flatpak build-install build org.example.OledWallpaper`
+- [X] T100 [US4] Install Flatpak app: `flatpak build-install build ninja.boop.OledWallpaper`
 - [X] T101 [US4] Verify Flatpak installation: `flatpak list --app | grep OledWallpaper`
-- [X] T102 [US4] Launch via Flatpak: `flatpak run org.example.OledWallpaper` - verify wallpaper appears
+- [X] T102 [US4] Launch via Flatpak: `flatpak run ninja.boop.OledWallpaper` - verify wallpaper appears
 - [X] T103 [US4] Verify Flatpak permissions: all graphics/input/config access working without permission errors
-- [X] T104 [US4] Test uninstall: `flatpak uninstall org.example.OledWallpaper` - clean removal with no artifacts
+- [X] T104 [US4] Test uninstall: `flatpak uninstall ninja.boop.OledWallpaper` - clean removal with no artifacts
 
 ### Manual Testing for User Story 4
 

@@ -192,7 +192,7 @@ Each acceptance scenario from the feature spec MUST have a corresponding integra
 | FR-001: Render animated galaxy | Launch app, observe for 10s | Planets visible and moving; no freeze |
 | FR-004: Pan with left-click drag | Click-drag wallpaper left; observe 100px pan | Scene pans; animation continues |
 | FR-005: Pulse with right-click | Right-click at screen center (500, 500) | Pulse visible for ~1.5s at click point |
-| FR-006: Flatpak deployment | Run `flatpak run com.example.OledWallpaper` | App launches as wallpaper |
+| FR-006: Flatpak deployment | Run `flatpak run ninja.boop.OledWallpaper` | App launches as wallpaper |
 | FR-007: Full monitor display | Run at 1920x1080, 2560x1440, 3840x2160 | Wallpaper fills entire monitor |
 | FR-008: OLED burn-in prevention | Run for 8 hours; observe pixel wear patterns | No static regions visible |
 | FR-009: Window manager integration | Open file manager, browser over wallpaper | Apps display on top; wallpaper continues |

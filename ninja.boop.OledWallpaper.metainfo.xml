@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.example.OledWallpaper</id>
+  <id>ninja.boop.OledWallpaper</id>
   <metadata_license>MIT</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
   <name>OLED Wallpaper</name>
@@ -23,7 +23,7 @@
     </ul>
   </description>
 
-  <url type="homepage">https://github.com/example/oled-wallpaper</url>
+  <url type="homepage">https://boop.ninja</url>
 
   <provides>
     <binary>oled-wallpaper</binary>

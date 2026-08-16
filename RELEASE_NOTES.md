@@ -6,7 +6,7 @@
 - Mouse interactions: left-drag pan, right-click pulse.
 - Optional demo mode (`--demo`) with auto-exit timer and bottom-right performance HUD.
 - Linux display-server aware startup path (Wayland/X11 handle routing) with X11 desktop hint pinning.
-- Flatpak packaging artifacts (`org.example.OledWallpaper.yml`, desktop file, metainfo).
+- Flatpak packaging artifacts (`ninja.boop.OledWallpaper.yml`, desktop file, metainfo).
 
 ## Performance Notes
 - Release build validated with `cargo build --release`.

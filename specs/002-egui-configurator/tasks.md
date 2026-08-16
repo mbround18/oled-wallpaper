@@ -103,7 +103,7 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Add Flatpak manifest or update existing manifest to include `oled-config` binary and required filesystem permissions (manifest org.example.OledWallpaper.yml)
+- [ ] T031 [P] Add Flatpak manifest or update existing manifest to include `oled-config` binary and required filesystem permissions (manifest ninja.boop.OledWallpaper.yml)
 - [ ] T032 [P] Add CI E2E workflow: .github/workflows/e2e.yml runs wallpaper `--demo` and headless configurator to perform two E2E scenarios (US1 apply, US2 widget toggle) and asserts logs/screenshot diffs
 - [ ] T033 [P] Documentation: update README.md with Configurator usage, presets, and Flatpak packaging notes
 - [ ] T034 [P] Run quickstart.md validation steps and fix any issues found

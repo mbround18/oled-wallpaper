@@ -249,14 +249,14 @@ cargo tree | grep -E "wgpu|winit|glam|toml"
 **Test Steps**:
 
 1. **Build Flatpak manifest** (if not already present):
-   - Verify `org.example.OledWallpaper.yml` exists in repo root
-   - Build with: `flatpak-builder --user --install build org.example.OledWallpaper.yml`
+   - Verify `ninja.boop.OledWallpaper.yml` exists in repo root
+   - Build with: `flatpak-builder --user --install build ninja.boop.OledWallpaper.yml`
    - Build time: 2-5 minutes
    - Build should complete without errors
 
 2. **Launch via Flatpak**:
    ```bash
-   flatpak run org.example.OledWallpaper
+   flatpak run ninja.boop.OledWallpaper
    ```
 
 3. **Verify Flatpak launch** (same as Scenario 1):
@@ -268,7 +268,7 @@ cargo tree | grep -E "wgpu|winit|glam|toml"
    ```bash
    flatpak list --app
    ```
-   - `org.example.OledWallpaper` should be listed
+   - `ninja.boop.OledWallpaper` should be listed
 
 **Acceptance Criteria** (from FR-006, SC-003):
 - ✅ Flatpak build completes successfully
