@@ -1,4 +1,5 @@
 pub mod config;
+pub mod configurator;
 /// Interactive OLED Wallpaper Application
 ///
 /// Core library module setup with logging/tracing support.

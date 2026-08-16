@@ -11,6 +11,10 @@ path = "src/lib.rs"
 name = "oled-wallpaper"
 path = "src/main.rs"
 
+[[bin]]
+name = "oled-config"
+path = "src/bin/oled-config.rs"
+
 [dependencies]
 wgpu = "0.19"
 winit = "0.29"
@@ -28,6 +32,11 @@ raw-window-handle = "0.6"
 x11rb = { version = "0.13", optional = true }
 glyphon = "0.5"
 chrono = { version = "0.4", default-features = true }
+anyhow = "1.0"
+dirs = "4.0"
+eframe = "0.22"
+egui = "0.22"
+sysinfo = "0.29"
 
 [features]
 default = ["x11"]
@@ -35,6 +44,8 @@ x11 = ["dep:x11rb"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
+assert_cmd = "2.0"
+tempfile = "3.3"
 
 [profile.release]
 opt-level = 3

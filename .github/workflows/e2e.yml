@@ -1,0 +1,11 @@
+name: e2e
+on: [push]
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release --bin oled-wallpaper --bin oled-config
+      - name: Run e2e (placeholder)
+        run: echo "E2E placeholder - run wallpaper --demo and headless config"
