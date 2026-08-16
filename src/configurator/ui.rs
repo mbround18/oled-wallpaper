@@ -133,7 +133,7 @@ impl Tab {
 // ─── App state ────────────────────────────────────────────────────────────────
 
 use crate::config::{Config, WeatherProvider};
-use crate::runtime::{autostart_enabled, set_autostart_enabled, wallpaper_status};
+use crate::runtime::{autostart_enabled, autostart_info, set_autostart_enabled, wallpaper_status};
 use eframe::egui;
 use egui::plot::{Line, Plot};
 use std::collections::VecDeque;
@@ -321,6 +321,14 @@ fn row_label(ui: &mut egui::Ui, label: &str) {
     ui.label(egui::RichText::new(label).color(STAR));
 }
 
+fn check_row(ui: &mut egui::Ui, ok: bool, label: &str) {
+    ui.horizontal(|ui| {
+        let (icon, col) = if ok { ("✓", GLOW_GREEN) } else { ("✗", DANGER) };
+        ui.label(egui::RichText::new(icon).color(col).strong());
+        ui.label(egui::RichText::new(label).color(if ok { STAR } else { DANGER }));
+    });
+}
+
 fn labeled_slider(
     ui: &mut egui::Ui,
     label: &str,
@@ -415,29 +423,78 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                 }
             });
 
-            ui.add_space(8.0);
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(6.0);
+
+            // ── Autostart with verification ───────────────────────────────
             let mut startup = app.startup_enabled;
             if ui
-                .checkbox(
-                    &mut startup,
-                    egui::RichText::new("Start automatically at login"),
-                )
+                .checkbox(&mut startup, egui::RichText::new("Start automatically at login").color(STAR))
                 .changed()
             {
                 match set_autostart_enabled(startup) {
                     Ok(()) => {
                         app.startup_enabled = startup;
                         app.save_message = Some((
-                            if startup {
-                                "Autostart enabled".into()
-                            } else {
-                                "Autostart disabled".into()
-                            },
+                            if startup { "Autostart enabled".into() } else { "Autostart disabled".into() },
                             0.0,
                         ));
                     }
                     Err(e) => app.save_message = Some((format!("Autostart error: {e}"), 0.0)),
                 }
+            }
+
+            if app.startup_enabled {
+                ui.add_space(6.0);
+                let info = autostart_info();
+                let border_col = if info.file_exists && info.exec_reachable { GLOW_GREEN } else { DANGER };
+                egui::Frame::none()
+                    .fill(DEEP)
+                    .rounding(egui::Rounding::same(6.0))
+                    .inner_margin(egui::style::Margin::same(10.0))
+                    .stroke(egui::Stroke::new(1.0_f32, border_col))
+                    .show(ui, |ui| {
+                        // File written check
+                        check_row(ui, info.file_exists, "Desktop file written");
+                        if info.file_exists {
+                            ui.label(
+                                egui::RichText::new(format!("  {}", info.path.display()))
+                                    .color(DIM).small().monospace(),
+                            );
+                        }
+
+                        // Exec reachable check
+                        check_row(ui, info.exec_reachable, "Launch command reachable");
+                        ui.label(
+                            egui::RichText::new(format!("  Exec={}",  info.exec_line))
+                                .color(DIM).small().monospace(),
+                        );
+
+                        // Context label
+                        ui.add_space(4.0);
+                        let ctx_text = if info.is_flatpak {
+                            "Running as Flatpak sandbox"
+                        } else {
+                            "Running as native binary"
+                        };
+                        ui.label(egui::RichText::new(ctx_text).color(DIM).small());
+
+                        if !info.exec_reachable {
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(
+                                    if info.is_flatpak {
+                                        "⚠ Flatpak app not installed user-wide — run 'make install-bundle' first"
+                                    } else {
+                                        "⚠ Binary not found — install the app or the PATH may differ at login"
+                                    }
+                                )
+                                .color(DANGER)
+                                .small(),
+                            );
+                        }
+                    });
             }
         });
 

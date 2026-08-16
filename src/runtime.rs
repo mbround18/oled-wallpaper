@@ -5,17 +5,110 @@ use std::path::{Path, PathBuf};
 
 const LOCK_FILE: &str = "wallpaper.lock";
 const AUTOSTART_FILE: &str = "ninja.boop.OledWallpaper.desktop";
-const AUTOSTART_DESKTOP: &str = r#"[Desktop Entry]
-Type=Application
-Name=OLED Wallpaper
-Comment=Start OLED Wallpaper as the desktop background at login
-Exec=oled-wallpaper
-Terminal=false
-X-GNOME-Autostart-enabled=true
-NoDisplay=false
-StartupNotify=false
-Categories=Utility;Graphics;
-"#;
+const FLATPAK_APP_ID: &str = "ninja.boop.OledWallpaper";
+
+// ─── Execution context detection ─────────────────────────────────────────────
+
+/// Returns true when the process is running inside a Flatpak sandbox.
+pub fn is_flatpak() -> bool {
+    // FLATPAK_ID is set by the Flatpak runtime for sandboxed apps.
+    std::env::var("FLATPAK_ID")
+        .map(|id| id == FLATPAK_APP_ID)
+        .unwrap_or(false)
+        || Path::new("/.flatpak-info").exists()
+}
+
+/// The `Exec=` command that will actually launch the wallpaper at login.
+pub fn autostart_exec() -> String {
+    if is_flatpak() {
+        format!("flatpak run {FLATPAK_APP_ID}")
+    } else {
+        // Use the real binary path so it works regardless of PATH at session start.
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| {
+                // current_exe is oled-config — the wallpaper binary lives alongside it
+                let wallpaper = p.with_file_name("oled-wallpaper");
+                if wallpaper.exists() {
+                    Some(wallpaper.to_string_lossy().into_owned())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "oled-wallpaper".to_string())
+    }
+}
+
+fn autostart_desktop_content() -> String {
+    let exec = autostart_exec();
+    format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=OLED Wallpaper\n\
+         Comment=Start OLED Wallpaper as the desktop background at login\n\
+         Exec={exec}\n\
+         Terminal=false\n\
+         X-GNOME-Autostart-enabled=true\n\
+         NoDisplay=false\n\
+         StartupNotify=false\n\
+         Categories=Utility;Graphics;\n"
+    )
+}
+
+// ─── Autostart verification ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct AutostartInfo {
+    pub path: PathBuf,
+    pub exec_line: String,
+    pub file_exists: bool,
+    /// Whether the exec command/binary is actually reachable right now.
+    pub exec_reachable: bool,
+    pub is_flatpak: bool,
+}
+
+pub fn autostart_info() -> AutostartInfo {
+    let path = autostart_path();
+    let exec_line = autostart_exec();
+    let file_exists = path.exists();
+
+    let exec_reachable = if is_flatpak() {
+        // Check flatpak is on PATH and the app is installed
+        which_ok("flatpak")
+            && std::process::Command::new("flatpak")
+                .args(["info", FLATPAK_APP_ID])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+    } else {
+        let bin: &str = exec_line.trim();
+        // Absolute path check first, then PATH lookup
+        if bin.starts_with('/') {
+            Path::new(bin).exists()
+        } else {
+            which_ok(bin)
+        }
+    };
+
+    AutostartInfo {
+        path,
+        exec_line,
+        file_exists,
+        exec_reachable,
+        is_flatpak: is_flatpak(),
+    }
+}
+
+fn which_ok(cmd: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| {
+            std::env::split_paths(&paths)
+                .any(|dir| dir.join(cmd).exists())
+        })
+        .unwrap_or(false)
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct WallpaperStatus {
@@ -152,7 +245,7 @@ pub fn set_autostart_enabled(enabled: bool) -> Result<(), std::io::Error> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(path, AUTOSTART_DESKTOP)?;
+        fs::write(&path, autostart_desktop_content())?;
     } else if path.exists() {
         fs::remove_file(path)?;
     }
