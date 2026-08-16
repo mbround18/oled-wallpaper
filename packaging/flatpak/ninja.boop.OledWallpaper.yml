@@ -7,6 +7,7 @@ command: oled-config
 
 finish-args:
   - --share=ipc
+  - --share=network
   - --socket=wayland
   - --socket=x11
   - --device=dri
@@ -17,6 +18,8 @@ modules:
   - name: oled-wallpaper
     buildsystem: simple
     build-commands:
+      # Inject offline vendor config before cargo build (network disabled in sandbox)
+      - mkdir -p .cargo && cp .cargo/flatpak-vendor.toml .cargo/config.toml
       - . /usr/lib/sdk/rust-stable/enable.sh && cargo build --release
       - install -Dm755 target/release/oled-wallpaper /app/bin/oled-wallpaper
       - install -Dm755 target/release/oled-config /app/bin/oled-config

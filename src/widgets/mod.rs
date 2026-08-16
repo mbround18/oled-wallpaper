@@ -2,12 +2,13 @@ use chrono::{DateTime, Local};
 use glam::Vec2;
 
 use crate::config::OverlayConfig;
+use crate::weather::{weather_widget_text, WeatherState};
 
 pub mod calendar;
 pub mod clock;
 
-const WIDGET_WIDTH: f32 = 340.0;
-const WIDGET_HEIGHT: f32 = 92.0;
+const WIDGET_WIDTH: f32 = 400.0;
+const WIDGET_HEIGHT: f32 = 130.0;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClockWidget {
@@ -110,7 +111,12 @@ impl WidgetSystem {
         [x, y]
     }
 
-    pub fn text(&self, cfg: &OverlayConfig) -> String {
+    pub fn text(
+        &self,
+        cfg: &OverlayConfig,
+        weather: Option<&WeatherState>,
+        weather_cfg: Option<&crate::config::WeatherConfig>,
+    ) -> String {
         let now = Local::now();
         let clock = ClockWidget {
             use_24h: cfg.clock_24h,
@@ -125,6 +131,16 @@ impl WidgetSystem {
         }
         if cfg.show_calendar {
             lines.push(calendar.render(now));
+        }
+        // Weather lines
+        if let (Some(ws), Some(wc)) = (weather, weather_cfg) {
+            if wc.enabled {
+                if let Some(wtext) = weather_widget_text(ws, wc) {
+                    lines.push(wtext);
+                } else if ws.error.is_some() {
+                    lines.push("Weather: unavailable".to_string());
+                }
+            }
         }
         lines.join("\n")
     }

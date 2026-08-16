@@ -3,6 +3,9 @@
 pub mod animation;
 pub use animation::{AnimationConfig, OverlayConfig};
 
+mod weather_config;
+pub use weather_config::{WeatherConfig, WeatherProvider};
+
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -14,6 +17,8 @@ pub struct Config {
     pub animation: AnimationConfig,
     #[serde(default)]
     pub overlay: OverlayConfig,
+    #[serde(default)]
+    pub weather: WeatherConfig,
 }
 
 impl Config {

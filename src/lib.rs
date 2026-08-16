@@ -12,6 +12,7 @@ pub mod physics;
 pub mod renderer;
 pub mod runtime;
 pub mod wallpaper;
+pub mod weather;
 pub mod widgets;
 
 use tracing_subscriber::filter::EnvFilter;

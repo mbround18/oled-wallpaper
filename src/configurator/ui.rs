@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, WeatherProvider};
 use crate::runtime::{autostart_enabled, set_autostart_enabled, wallpaper_status};
 use eframe::egui;
 use egui::plot::{Line, Plot};
@@ -212,6 +212,62 @@ impl eframe::App for ConfiguratorApp {
                             (self.cfg.overlay.widget_color[3] * 255.0) as u8,
                         ));
                         painter.text(draw_pos + egui::vec2(0.0, -24.0), egui::Align2::CENTER_CENTER, "Clock", egui::FontId::proportional(14.0), egui::Color32::WHITE);
+            });
+
+            ui.separator();
+
+            // ── Weather widget ─────────────────────────────────────────────
+            ui.collapsing("Weather & Air Quality", |ui| {
+                ui.checkbox(&mut self.cfg.weather.enabled, "Enable weather widget");
+                if self.cfg.weather.enabled {
+                    ui.separator();
+
+                    // Provider selector
+                    ui.label("Provider:");
+                    ui.horizontal(|ui| {
+                        let is_meteo = self.cfg.weather.provider == WeatherProvider::OpenMeteo;
+                        if ui.radio(is_meteo, WeatherProvider::OpenMeteo.label()).clicked() {
+                            self.cfg.weather.provider = WeatherProvider::OpenMeteo;
+                        }
+                        if ui.radio(!is_meteo, WeatherProvider::OpenWeatherMap.label()).clicked() {
+                            self.cfg.weather.provider = WeatherProvider::OpenWeatherMap;
+                        }
+                    });
+
+                    if self.cfg.weather.provider == WeatherProvider::OpenWeatherMap {
+                        ui.label("API Key:");
+                        ui.text_edit_singleline(&mut self.cfg.weather.api_key);
+                        ui.label(egui::RichText::new("Get a free key at openweathermap.org").weak());
+                    }
+
+                    ui.separator();
+                    ui.label("Location (decimal degrees):");
+                    ui.horizontal(|ui| {
+                        ui.label("Lat:");
+                        ui.add(egui::DragValue::new(&mut self.cfg.weather.latitude)
+                            .speed(0.01).clamp_range(-90.0..=90.0));
+                        ui.label("Lon:");
+                        ui.add(egui::DragValue::new(&mut self.cfg.weather.longitude)
+                            .speed(0.01).clamp_range(-180.0..=180.0));
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.cfg.weather.units_fahrenheit, "Fahrenheit");
+                        ui.checkbox(&mut self.cfg.weather.show_aqi, "Show AQI");
+                        ui.checkbox(&mut self.cfg.weather.affect_galaxy, "Affect galaxy visuals");
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Refresh every");
+                        ui.add(egui::DragValue::new(&mut self.cfg.weather.refresh_minutes)
+                            .speed(1).clamp_range(5..=120));
+                        ui.label("minutes");
+                    });
+
+                    ui.label(egui::RichText::new(
+                        "Rain → more meteors  |  Storm → cosmic rays + thunder pulses  |  Snow → white meteors  |  Fog → dim stars"
+                    ).weak().small());
+                }
             });
 
             ui.separator();

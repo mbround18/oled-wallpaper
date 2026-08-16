@@ -25,6 +25,7 @@ use oled_wallpaper::perf::PerfStats;
 use oled_wallpaper::physics::{body::CelestialBody, orbit::Orbit, PhysicsSimulator};
 use oled_wallpaper::renderer::camera::Camera;
 use oled_wallpaper::runtime::acquire_wallpaper_lock;
+use oled_wallpaper::weather::{start_weather_thread, WeatherInfluence, WeatherState};
 use oled_wallpaper::widgets::WidgetSystem;
 
 use glyphon::{
@@ -119,7 +120,7 @@ fn pin_x11(window_id: u32) {
     let wm_hints = intern(b"WM_HINTS");
     let mut hints = [0u32; 9];
     hints[0] = 0x1; // InputHint flag set
-    hints[1] = 0;   // input = False
+    hints[1] = 0; // input = False
     let hints_bytes: Vec<u8> = hints.iter().flat_map(|v| v.to_ne_bytes()).collect();
     conn.change_property(
         PropMode::REPLACE,
@@ -768,6 +769,10 @@ fn main() {
     let acfg = app_cfg.animation.clone();
     let speed = acfg.planet_speed; // orbital period divisor
 
+    // ── Weather background thread ───────────────────────────────────────────
+    let weather_state = std::sync::Arc::new(std::sync::Mutex::new(WeatherState::default()));
+    start_weather_thread(app_cfg.weather.clone(), weather_state.clone());
+
     // Helper: override color from config if entry exists
     let pcolor = |i: usize, fallback: Vec4| -> Vec4 {
         acfg.planet_colors
@@ -900,6 +905,8 @@ fn main() {
     let mut next_alien = ALIEN_INTERVAL * rng.f32_range(0.8, 1.2);
     let mut next_cosmic = COSMIC_INTERVAL * rng.f32_range(0.6, 1.4);
     let mut meteor_history: Vec<Vec<Vec3>> = Vec::new();
+    let mut weather_influence = WeatherInfluence::default();
+    let mut thunder_pulse_timer: f32 = 0.0; // countdown to next thunder pulse
 
     // ── Cosmic scene init ──────────────────────────────────────────────────
     let mut stars = gen_stars(&mut rng, 260);
@@ -1032,6 +1039,28 @@ fn main() {
                     let asp = w / h;
                     widgets.update(t, Vec2::new(w, h), &app_cfg.overlay);
 
+                    // ── Weather influence ──────────────────────────────────
+                    if app_cfg.weather.enabled && app_cfg.weather.affect_galaxy {
+                        if let Ok(ws) = weather_state.lock() {
+                            if let Some(wd) = &ws.weather {
+                                weather_influence = WeatherInfluence::from_condition(&wd.condition);
+                            }
+                        }
+                    }
+
+                    // Thunder: randomly fire a bright pulse every 5–15s when storming
+                    if weather_influence.thunder_pulses {
+                        thunder_pulse_timer -= dt;
+                        if thunder_pulse_timer <= 0.0 {
+                            let nx = rng.f32_range(-0.8, 0.8);
+                            let ny = rng.f32_range(-0.8, 0.8);
+                            let mut p = PulseEffect::new(Vec2::new(nx, ny), &mut rng);
+                            p.color = Vec4::new(0.9, 0.95, 1.0, 1.0); // white-blue thunder
+                            pulses.push(p);
+                            thunder_pulse_timer = rng.f32_range(5.0, 15.0);
+                        }
+                    }
+
                     // Slow whole-plane yaw — opposite direction to the largest body (Saturn),
                     // so nothing drifts predictably. Full revolution every ~5 min.
                     let plane_yaw = t * YAW_SPEED;
@@ -1047,9 +1076,18 @@ fn main() {
                     // ── Spawn / update meteors ─────────────────────────────
                     next_meteor -= dt;
                     if next_meteor <= 0. {
-                        meteors.push(Meteor::spawn(&mut rng));
+                        let mut m = Meteor::spawn(&mut rng);
+                        // Weather tinting: rain = ice-blue, snow = pure white
+                        if weather_influence.snow_tint {
+                            m.color = Vec4::new(0.95, 0.97, 1.0, 1.0);
+                        } else if weather_influence.rain_meteor_tint {
+                            m.color = Vec4::new(0.6, 0.82, 1.0, 1.0);
+                        }
+                        meteors.push(m);
                         meteor_history.push(Vec::new());
-                        next_meteor = METEOR_SPAWN_INTERVAL * rng.f32_range(0.8, 1.5);
+                        let base_interval =
+                            METEOR_SPAWN_INTERVAL / weather_influence.meteor_rate.max(0.1);
+                        next_meteor = base_interval * rng.f32_range(0.8, 1.5);
                     }
                     let mut dead = Vec::new();
                     for (i, m) in meteors.iter_mut().enumerate() {
@@ -1087,7 +1125,9 @@ fn main() {
                     next_cosmic -= dt;
                     if next_cosmic <= 0. {
                         cosmic_rays.push(CosmicRay::spawn(&mut rng));
-                        next_cosmic = COSMIC_INTERVAL * rng.f32_range(0.6, 1.4);
+                        let base_interval =
+                            COSMIC_INTERVAL / weather_influence.cosmic_rate.max(0.1);
+                        next_cosmic = base_interval * rng.f32_range(0.6, 1.4);
                     }
                     cosmic_rays.retain_mut(|r| {
                         r.update(dt);
@@ -1218,7 +1258,7 @@ fn main() {
                         let ndc =
                             project(star.pos, plane_yaw * 0.15, view_half_h, asp) + pan_ndc * 0.08; // rotate slower for parallax
                         let twinkle = 0.7 + 0.3 * (t * 2.3 + star.twinkle).sin();
-                        let b = star.bright * twinkle;
+                        let b = star.bright * twinkle * weather_influence.star_brightness;
                         body_insts.push(BodyInst {
                             ndc_pos: ndc.to_array(),
                             ndc_r: 2.5 / (view_half_h * asp),
@@ -1385,7 +1425,9 @@ fn main() {
                     };
 
                     let widget_buf_opt = if show_widgets {
-                        let text = widgets.text(&app_cfg.overlay);
+                        let ws_guard = weather_state.lock().ok();
+                        let ws_ref = ws_guard.as_deref();
+                        let text = widgets.text(&app_cfg.overlay, ws_ref, Some(&app_cfg.weather));
                         if !text.is_empty() {
                             let font_size = ((cfg.height as f32 * 0.024)
                                 * app_cfg.overlay.widget_font_scale)
@@ -1393,7 +1435,7 @@ fn main() {
                             let line_h = font_size * 1.28;
                             let mut buf =
                                 Buffer::new(&mut font_system, Metrics::new(font_size, line_h));
-                            buf.set_size(&mut font_system, 360.0, 130.0);
+                            buf.set_size(&mut font_system, 420.0, 180.0);
                             buf.set_text(
                                 &mut font_system,
                                 &text,
