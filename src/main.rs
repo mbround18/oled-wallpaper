@@ -600,7 +600,7 @@ fn main() {
 
     // ── wgpu ───────────────────────────────────────────────────────────────
     let inst = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::all(),
+        backends: wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all()),
         ..Default::default()
     });
     let surf = inst.create_surface(window.clone()).expect("surface");
