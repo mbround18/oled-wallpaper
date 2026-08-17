@@ -18,7 +18,7 @@ jobs:
             xvfb \
             libxkbcommon-x11-0 \
             libgl1-mesa-dri \
-            libegl1-mesa \
+            libegl1 \
             mesa-vulkan-drivers
       - name: Build (make)
         run: make build
