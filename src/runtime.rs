@@ -84,10 +84,10 @@ fn autostart_desktop_content() -> String {
 #[derive(Debug, Clone)]
 pub struct AutostartInfo {
     pub path: PathBuf,
-    pub exec_line: String,   // what *should* be in the file
+    pub exec_line: String, // what *should* be in the file
     pub file_exists: bool,
     pub exec_reachable: bool,
-    pub exec_stale: bool,    // file exists but has an old/different Exec= line
+    pub exec_stale: bool, // file exists but has an old/different Exec= line
     pub via_flatpak: bool,
 }
 
@@ -110,21 +110,30 @@ pub fn autostart_info() -> AutostartInfo {
         true // flatpak_app_installed() already confirmed this
     } else {
         let bin = exec_line.trim();
-        if bin.starts_with('/') { Path::new(bin).exists() } else { which_ok(bin) }
+        if bin.starts_with('/') {
+            Path::new(bin).exists()
+        } else {
+            which_ok(bin)
+        }
     };
 
-    AutostartInfo { path, exec_line, file_exists, exec_reachable, exec_stale, via_flatpak }
+    AutostartInfo {
+        path,
+        exec_line,
+        file_exists,
+        exec_reachable,
+        exec_stale,
+        via_flatpak,
+    }
 }
 
 /// If an autostart file exists with a stale Exec= line, silently rewrite it.
 /// Returns true if it was updated.
 pub fn heal_autostart_if_stale() -> bool {
     let info = autostart_info();
-    if info.file_exists && info.exec_stale {
-        if set_autostart_enabled(true).is_ok() {
-            tracing::info!("Autostart healed: Exec={}", info.exec_line);
-            return true;
-        }
+    if info.file_exists && info.exec_stale && set_autostart_enabled(true).is_ok() {
+        tracing::info!("Autostart healed: Exec={}", info.exec_line);
+        return true;
     }
     false
 }
@@ -295,7 +304,10 @@ pub fn restart_wallpaper() -> Result<(), String> {
 
     // Choose launch command: Flatpak or native sibling binary
     let (cmd, args): (&str, Vec<&str>) = if flatpak_app_installed() {
-        ("flatpak", vec!["run", "--command=oled-wallpaper", FLATPAK_APP_ID])
+        (
+            "flatpak",
+            vec!["run", "--command=oled-wallpaper", FLATPAK_APP_ID],
+        )
     } else {
         ("oled-wallpaper", vec![])
     };

@@ -493,8 +493,18 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                         // Exec line up to date
                         if info.exec_stale {
                             ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("⟳").color(egui::Color32::from_rgb(255, 190, 60)).strong());
-                                ui.label(egui::RichText::new("Exec= updated — was outdated, fixed automatically").color(egui::Color32::from_rgb(255, 190, 60)).small());
+                                ui.label(
+                                    egui::RichText::new("⟳")
+                                        .color(egui::Color32::from_rgb(255, 190, 60))
+                                        .strong(),
+                                );
+                                ui.label(
+                                    egui::RichText::new(
+                                        "Exec= updated — was outdated, fixed automatically",
+                                    )
+                                    .color(egui::Color32::from_rgb(255, 190, 60))
+                                    .small(),
+                                );
                             });
                         } else {
                             check_row(ui, true, "Exec= command up to date");
@@ -1147,7 +1157,10 @@ impl eframe::App for ConfiguratorApp {
                         if age < 4.0 {
                             let alpha = (1.0 - (age / 4.0)).max(0.0) as f32;
                             let col = egui::Color32::from_rgba_unmultiplied(
-                                200, 230, 255, (alpha * 200.0) as u8,
+                                200,
+                                230,
+                                255,
+                                (alpha * 200.0) as u8,
                             );
                             ui.label(egui::RichText::new(msg.as_str()).color(col).small());
                         }
@@ -1157,7 +1170,9 @@ impl eframe::App for ConfiguratorApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let save_btn = ui.add(
                             egui::Button::new(
-                                egui::RichText::new("  Save & Restart  ").color(STAR).strong(),
+                                egui::RichText::new("  Save & Restart  ")
+                                    .color(STAR)
+                                    .strong(),
                             )
                             .fill(ACCENT_DIM)
                             .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
@@ -1166,8 +1181,14 @@ impl eframe::App for ConfiguratorApp {
                             self.save();
                             // Restart the wallpaper so changes take effect immediately
                             match restart_wallpaper() {
-                                Ok(()) => self.save_message = Some(("Saved — wallpaper restarted.".into(), t as f64)),
-                                Err(e) => self.save_message = Some((format!("Saved (restart failed: {e})"), t as f64)),
+                                Ok(()) => {
+                                    self.save_message =
+                                        Some(("Saved — wallpaper restarted.".into(), t as f64))
+                                }
+                                Err(e) => {
+                                    self.save_message =
+                                        Some((format!("Saved (restart failed: {e})"), t as f64))
+                                }
                             }
                         }
                     });
