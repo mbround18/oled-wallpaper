@@ -996,6 +996,10 @@ fn tab_system(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
         .include_y(0.0)
         .include_y(100.0)
         .show_axes([false, true])
+        .allow_scroll(false)
+        .allow_zoom(false)
+        .allow_drag(false)
+        .allow_boxed_zoom(false)
         .show(ui, |plot_ui| {
             plot_ui.line(
                 Line::new(cpu_vec)
