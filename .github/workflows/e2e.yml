@@ -12,7 +12,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install deps (xvfb for headless display)
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb libxkbcommon-x11-0
       - name: Build (make)
         run: make build
       - name: Run E2E scripts
