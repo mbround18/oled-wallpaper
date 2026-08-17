@@ -268,3 +268,14 @@ fn heal_noop_when_no_file() {
         assert!(!healed, "heal should be a no-op when no file exists");
     });
 }
+
+// Migrated from tests/unit/test_ui_helpers.rs, which cargo never discovered
+// or ran: cargo only auto-discovers test binaries directly under tests/, not
+// in subdirectories, unless explicitly wired via Cargo.toml or a mod include.
+#[test]
+fn clamp_zoom_bounds() {
+    use oled_wallpaper::configurator::ConfiguratorApp;
+    assert_eq!(ConfiguratorApp::clamp_zoom(0.0), 0.1);
+    assert_eq!(ConfiguratorApp::clamp_zoom(10.0), 5.0);
+    assert_eq!(ConfiguratorApp::clamp_zoom(2.5), 2.5);
+}

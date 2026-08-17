@@ -21,4 +21,33 @@ jobs:
           xvfb-run -a ./tests/e2e/e2e_us1_apply.sh
           xvfb-run -a ./tests/e2e/e2e_us2_widget.sh
           xvfb-run -a ./tests/e2e/e2e_wallpaper_demo_widget.sh
+          xvfb-run -a ./tests/e2e/e2e_wallpaper_lock_restart.sh
+          ./tests/e2e/e2e_preset_roundtrip.sh
           ./tests/e2e/e2e_version_sync.sh
+
+  e2e-flatpak-autostart:
+    name: e2e (flatpak sandbox autostart regression)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
+      # This builds the Flatpak offline (via packaging/flatpak/cargo-sources.json), runs
+      # oled-config inside the actual sandbox, and asserts the "start at login" toggle
+      # writes to the real host ~/.config/autostart — not just the sandbox's ephemeral
+      # per-process overlay. See tests/e2e/e2e_flatpak_autostart.sh for why this is the
+      # only test that can catch this specific class of sandboxing regression.
+      - name: Run flatpak sandbox autostart e2e regression
+        run: |
+          chmod +x tests/e2e/e2e_flatpak_autostart.sh
+          ./tests/e2e/e2e_flatpak_autostart.sh

@@ -44,8 +44,16 @@ pub fn flatpak_app_installed() -> bool {
 
 /// The `Exec=` command that will actually launch the wallpaper at login.
 /// Prefers Flatpak if installed; falls back to native binary path.
+///
+/// `is_flatpak()` is checked first: when this process is itself running
+/// inside the Flatpak sandbox, the `flatpak` CLI binary isn't present there
+/// (sandboxed apps don't get host tools), so `flatpak_app_installed()`'s
+/// subprocess check always fails and would otherwise fall through to
+/// `/app/bin/oled-wallpaper` — a path that only exists inside the sandbox's
+/// own mount namespace, not on the host. `is_flatpak()` needs no subprocess
+/// and is reliable from inside the sandbox, so it takes priority here.
 pub fn autostart_exec() -> String {
-    if flatpak_app_installed() {
+    if is_flatpak() || flatpak_app_installed() {
         format!("flatpak run {FLATPAK_APP_ID}")
     } else {
         // Try to resolve the wallpaper binary alongside the current executable
@@ -92,7 +100,10 @@ pub struct AutostartInfo {
 }
 
 pub fn autostart_info() -> AutostartInfo {
-    let via_flatpak = flatpak_app_installed();
+    // See autostart_exec()'s doc comment: flatpak_app_installed() alone can't
+    // detect our own install from inside our own sandbox (no `flatpak` CLI
+    // there), which would otherwise show a false "unreachable" warning.
+    let via_flatpak = is_flatpak() || flatpak_app_installed();
     let exec_line = autostart_exec();
     let path = autostart_path();
     let file_exists = path.exists();

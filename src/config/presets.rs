@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Preset {
     pub name: String,
     pub config: Config,

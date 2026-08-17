@@ -3,6 +3,8 @@
 pub mod animation;
 pub use animation::{AnimationConfig, OverlayConfig, OverlayWidget};
 
+pub mod presets;
+
 mod weather_config;
 pub use weather_config::{WeatherConfig, WeatherProvider};
 
