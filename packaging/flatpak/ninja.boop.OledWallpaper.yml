@@ -12,15 +12,17 @@ finish-args:
   - --socket=x11
   - --device=dri
   - --filesystem=~/.config/oled-wallpaper:create
+  - --filesystem=xdg-config/autostart:create
   - --env=RUST_LOG=info
 
 modules:
   - name: oled-wallpaper
     buildsystem: simple
+    build-options:
+      env:
+        CARGO_HOME: /run/build/oled-wallpaper/cargo
     build-commands:
-      # Inject offline vendor config before cargo build (network disabled in sandbox)
-      - mkdir -p .cargo && cp .cargo/flatpak-vendor.toml .cargo/config.toml
-      - . /usr/lib/sdk/rust-stable/enable.sh && cargo build --release
+      - . /usr/lib/sdk/rust-stable/enable.sh && cargo build --release --offline
       - install -Dm755 target/release/oled-wallpaper /app/bin/oled-wallpaper
       - install -Dm755 target/release/oled-config /app/bin/oled-config
       - install -Dm644 packaging/flatpak/ninja.boop.OledWallpaper.desktop /app/share/applications/ninja.boop.OledWallpaper.desktop
@@ -30,3 +32,4 @@ modules:
     sources:
       - type: dir
         path: ../..
+      - cargo-sources.json

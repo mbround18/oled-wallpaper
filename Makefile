@@ -5,7 +5,7 @@ DIST_DIR := dist
 FLATHUB_REPO := https://flathub.org/repo/flathub.flatpakrepo
 RUNTIME_REF := org.freedesktop.Platform//25.08
 
-.PHONY: help all build build-flatpak build-local bundle flatpak-repo \
+.PHONY: help all build build-flatpak build-local bundle build-bundle flatpak-repo \
 	install install-flatpak install-local install-bundle \
 	uninstall release enable-autostart enable-systemd \
 	clean clean-cache clean-all
@@ -39,6 +39,8 @@ build-local: ## Build a local release binary with cargo (no Flatpak)
 	@echo "-> local build complete (target/release/oled-wallpaper)"
 
 ## ---- Package / distribute --------------------------------------------
+
+build-bundle: bundle ## Alias for 'bundle' (used by CI release workflow)
 
 bundle: ## Build a distributable .flatpak bundle file into dist/
 	@echo "-> Building Flatpak repo and bundle into $(DIST_DIR)"
