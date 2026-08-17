@@ -9,25 +9,49 @@ const FLATPAK_APP_ID: &str = "ninja.boop.OledWallpaper";
 
 // ─── Execution context detection ─────────────────────────────────────────────
 
-/// Returns true when the process is running inside a Flatpak sandbox.
+/// True if this process is currently running *inside* the Flatpak sandbox.
 pub fn is_flatpak() -> bool {
-    // FLATPAK_ID is set by the Flatpak runtime for sandboxed apps.
     std::env::var("FLATPAK_ID")
         .map(|id| id == FLATPAK_APP_ID)
         .unwrap_or(false)
         || Path::new("/.flatpak-info").exists()
 }
 
+/// True if the Flatpak app is installed in the user or system installation.
+/// This works whether or not we are currently running inside the sandbox.
+pub fn flatpak_app_installed() -> bool {
+    which_ok("flatpak")
+        && (
+            // user install (preferred)
+            std::process::Command::new("flatpak")
+                .args(["--user", "info", FLATPAK_APP_ID])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+            ||
+            // system-wide install fallback
+            std::process::Command::new("flatpak")
+                .args(["info", FLATPAK_APP_ID])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+        )
+}
+
 /// The `Exec=` command that will actually launch the wallpaper at login.
+/// Prefers Flatpak if installed; falls back to native binary path.
 pub fn autostart_exec() -> String {
-    if is_flatpak() {
+    if flatpak_app_installed() {
         format!("flatpak run {FLATPAK_APP_ID}")
     } else {
-        // Use the real binary path so it works regardless of PATH at session start.
+        // Try to resolve the wallpaper binary alongside the current executable
         std::env::current_exe()
             .ok()
             .and_then(|p| {
-                // current_exe is oled-config — the wallpaper binary lives alongside it
                 let wallpaper = p.with_file_name("oled-wallpaper");
                 if wallpaper.exists() {
                     Some(wallpaper.to_string_lossy().into_owned())
@@ -64,34 +88,20 @@ pub struct AutostartInfo {
     pub file_exists: bool,
     /// Whether the exec command/binary is actually reachable right now.
     pub exec_reachable: bool,
-    pub is_flatpak: bool,
+    pub via_flatpak: bool,
 }
 
 pub fn autostart_info() -> AutostartInfo {
-    let path = autostart_path();
+    let via_flatpak = flatpak_app_installed();
     let exec_line = autostart_exec();
+    let path = autostart_path();
     let file_exists = path.exists();
 
-    let exec_reachable = if is_flatpak() {
-        // Must check the user installation — system-wide may not exist.
-        // Try --user first, then fall back to checking the system install.
-        which_ok("flatpak")
-            && (std::process::Command::new("flatpak")
-                .args(["--user", "info", FLATPAK_APP_ID])
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false)
-                || std::process::Command::new("flatpak")
-                    .args(["info", FLATPAK_APP_ID])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status()
-                    .map(|s| s.success())
-                    .unwrap_or(false))
+    let exec_reachable = if via_flatpak {
+        // flatpak_app_installed() already confirmed this
+        true
     } else {
-        let bin: &str = exec_line.trim();
+        let bin = exec_line.trim();
         if bin.starts_with('/') {
             Path::new(bin).exists()
         } else {
@@ -104,16 +114,13 @@ pub fn autostart_info() -> AutostartInfo {
         exec_line,
         file_exists,
         exec_reachable,
-        is_flatpak: is_flatpak(),
+        via_flatpak,
     }
 }
 
 fn which_ok(cmd: &str) -> bool {
     std::env::var_os("PATH")
-        .map(|paths| {
-            std::env::split_paths(&paths)
-                .any(|dir| dir.join(cmd).exists())
-        })
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(cmd).exists()))
         .unwrap_or(false)
 }
 

@@ -323,7 +323,11 @@ fn row_label(ui: &mut egui::Ui, label: &str) {
 
 fn check_row(ui: &mut egui::Ui, ok: bool, label: &str) {
     ui.horizontal(|ui| {
-        let (icon, col) = if ok { ("✓", GLOW_GREEN) } else { ("✗", DANGER) };
+        let (icon, col) = if ok {
+            ("✓", GLOW_GREEN)
+        } else {
+            ("✗", DANGER)
+        };
         ui.label(egui::RichText::new(icon).color(col).strong());
         ui.label(egui::RichText::new(label).color(if ok { STAR } else { DANGER }));
     });
@@ -430,14 +434,21 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
             // ── Autostart with verification ───────────────────────────────
             let mut startup = app.startup_enabled;
             if ui
-                .checkbox(&mut startup, egui::RichText::new("Start automatically at login").color(STAR))
+                .checkbox(
+                    &mut startup,
+                    egui::RichText::new("Start automatically at login").color(STAR),
+                )
                 .changed()
             {
                 match set_autostart_enabled(startup) {
                     Ok(()) => {
                         app.startup_enabled = startup;
                         app.save_message = Some((
-                            if startup { "Autostart enabled".into() } else { "Autostart disabled".into() },
+                            if startup {
+                                "Autostart enabled".into()
+                            } else {
+                                "Autostart disabled".into()
+                            },
                             0.0,
                         ));
                     }
@@ -448,7 +459,11 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
             if app.startup_enabled {
                 ui.add_space(6.0);
                 let info = autostart_info();
-                let border_col = if info.file_exists && info.exec_reachable { GLOW_GREEN } else { DANGER };
+                let border_col = if info.file_exists && info.exec_reachable {
+                    GLOW_GREEN
+                } else {
+                    DANGER
+                };
                 egui::Frame::none()
                     .fill(DEEP)
                     .rounding(egui::Rounding::same(6.0))
@@ -460,37 +475,45 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                         if info.file_exists {
                             ui.label(
                                 egui::RichText::new(format!("  {}", info.path.display()))
-                                    .color(DIM).small().monospace(),
+                                    .color(DIM)
+                                    .small()
+                                    .monospace(),
                             );
                         }
 
                         // Exec reachable check
                         check_row(ui, info.exec_reachable, "Launch command reachable");
                         ui.label(
-                            egui::RichText::new(format!("  Exec={}",  info.exec_line))
-                                .color(DIM).small().monospace(),
+                            egui::RichText::new(format!("  Exec={}", info.exec_line))
+                                .color(DIM)
+                                .small()
+                                .monospace(),
                         );
 
                         // Context label
                         ui.add_space(4.0);
-                        let ctx_text = if info.is_flatpak {
-                            "Running as Flatpak sandbox"
+                        let ctx_text = if info.via_flatpak {
+                            "Launching via Flatpak"
                         } else {
-                            "Running as native binary"
+                            "Launching as native binary"
                         };
                         ui.label(egui::RichText::new(ctx_text).color(DIM).small());
 
                         if !info.exec_reachable {
                             ui.add_space(6.0);
-                            if info.is_flatpak {
+                            if info.via_flatpak {
                                 ui.label(
-                                    egui::RichText::new("⚠  App not found in your Flatpak install.")
-                                        .color(DANGER).small(),
+                                    egui::RichText::new(
+                                        "⚠  App not found in your Flatpak install.",
+                                    )
+                                    .color(DANGER)
+                                    .small(),
                                 );
                                 ui.add_space(2.0);
                                 ui.label(
                                     egui::RichText::new("To fix, re-install the bundle:")
-                                        .color(DIM).small(),
+                                        .color(DIM)
+                                        .small(),
                                 );
                                 ui.add_space(2.0);
                                 let cmd = format!(
@@ -502,18 +525,20 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                                     egui::TextEdit::multiline(&mut cmd.as_str())
                                         .font(egui::FontId::monospace(11.0))
                                         .desired_rows(1)
-                                        .desired_width(f32::INFINITY)
+                                        .desired_width(f32::INFINITY),
                                 );
                             } else {
                                 ui.label(
                                     egui::RichText::new("⚠  Binary not found on this machine.")
-                                        .color(DANGER).small(),
+                                        .color(DANGER)
+                                        .small(),
                                 );
                                 ui.label(
                                     egui::RichText::new(
-                                        "Make sure OLED Wallpaper is installed and on your PATH."
+                                        "Make sure OLED Wallpaper is installed and on your PATH.",
                                     )
-                                    .color(DIM).small(),
+                                    .color(DIM)
+                                    .small(),
                                 );
                             }
                         }
