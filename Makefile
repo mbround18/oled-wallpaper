@@ -3,7 +3,7 @@ APP_ID := ninja.boop.OledWallpaper
 BUILD_DIR := build-dir
 DIST_DIR := dist
 FLATHUB_REPO := https://flathub.org/repo/flathub.flatpakrepo
-RUNTIME_REF := org.freedesktop.Platform//24.08
+RUNTIME_REF := org.freedesktop.Platform//25.08
 
 .PHONY: all build build-flatpak build-local build-bundle flatpak install install-flatpak install-local install-bundle clean uninstall-flatpak
 
@@ -22,8 +22,8 @@ build:
 
 build-flatpak:
 	@echo "-> Ensuring Flatpak runtimes are available (may prompt)..."
-	flatpak install --user --noninteractive flathub org.freedesktop.Platform//24.08 \
-		org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 2>/dev/null || true
+	flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 \
+		org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08 2>/dev/null || true
 	@echo "-> Running flatpak-builder"
 	flatpak-builder --user --install --force-clean $(BUILD_DIR) $(FLATPAK_MANIFEST)
 	@echo "-> Flatpak build+install complete"

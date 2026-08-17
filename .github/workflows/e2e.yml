@@ -21,3 +21,4 @@ jobs:
           xvfb-run -a ./tests/e2e/e2e_us1_apply.sh
           xvfb-run -a ./tests/e2e/e2e_us2_widget.sh
           xvfb-run -a ./tests/e2e/e2e_wallpaper_demo_widget.sh
+          ./tests/e2e/e2e_version_sync.sh

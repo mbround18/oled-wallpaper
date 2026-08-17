@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Keeps every file that embeds the project version in lockstep with Cargo.toml
+# (the single source of truth). Run with no args to check; --fix to correct
+# drift; --tag <ref> to additionally verify a git tag matches.
+#
+# Usage:
+#   scripts/version-sync              # check mode (exit 2 on drift)
+#   scripts/version-sync --fix        # rewrite out-of-sync files
+#   scripts/version-sync --tag v1.2.3 # also verify tag == Cargo.toml version
+#   scripts/version-sync --root DIR   # operate on a different tree (tests)
+set -euo pipefail
+
+MODE="check"
+TAG=""
+ROOT=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fix) MODE="fix"; shift ;;
+    --check) MODE="check"; shift ;;
+    --tag) TAG="$2"; shift 2 ;;
+    --root) ROOT="$2"; shift 2 ;;
+    -h|--help)
+      sed -n '2,12p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "version-sync: unknown argument: $1" >&2
+      exit 64
+      ;;
+  esac
+done
+
+if [[ -z "$ROOT" ]]; then
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+CARGO_TOML="$ROOT/Cargo.toml"
+METAINFO="$ROOT/packaging/flatpak/ninja.boop.OledWallpaper.metainfo.xml"
+
+if [[ ! -f "$CARGO_TOML" ]]; then
+  echo "version-sync: no Cargo.toml found under $ROOT" >&2
+  exit 64
+fi
+
+cargo_version() {
+  grep -m1 '^version' "$CARGO_TOML" | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
+}
+
+metainfo_version() {
+  grep -m1 '<release version=' "$METAINFO" | sed -E 's/.*version="([^"]+)".*/\1/'
+}
+
+SOURCE_VERSION="$(cargo_version)"
+if [[ -z "$SOURCE_VERSION" ]]; then
+  echo "version-sync: could not read version from $CARGO_TOML" >&2
+  exit 64
+fi
+
+status=0
+
+check_or_fix_metainfo() {
+  if [[ ! -f "$METAINFO" ]]; then
+    echo "version-sync: no metainfo.xml found under $ROOT" >&2
+    status=1
+    return
+  fi
+  local current
+  current="$(metainfo_version)"
+  if [[ "$current" == "$SOURCE_VERSION" ]]; then
+    echo "OK   metainfo.xml release version ($current) matches Cargo.toml"
+    return
+  fi
+  if [[ "$MODE" == "fix" ]]; then
+    sed -i -E "0,/<release version=\"[^\"]+\"/s//<release version=\"${SOURCE_VERSION}\"/" "$METAINFO"
+    echo "FIX  metainfo.xml release version: $current -> $SOURCE_VERSION"
+  else
+    echo "DRIFT metainfo.xml release version is $current, expected $SOURCE_VERSION" >&2
+    status=1
+  fi
+}
+
+check_or_fix_metainfo
+
+if [[ -n "$TAG" ]]; then
+  tag_version="${TAG#v}"
+  if [[ "$tag_version" != "$SOURCE_VERSION" ]]; then
+    echo "DRIFT tag $TAG (=> $tag_version) does not match Cargo.toml version $SOURCE_VERSION" >&2
+    status=1
+  else
+    echo "OK   tag $TAG matches Cargo.toml"
+  fi
+fi
+
+if [[ $status -ne 0 && "$MODE" == "check" ]]; then
+  echo "version-sync: drift detected; re-run with --fix to correct (tag mismatches must be fixed by hand)" >&2
+fi
+
+exit $status

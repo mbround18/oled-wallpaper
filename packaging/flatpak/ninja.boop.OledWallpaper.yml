@@ -1,6 +1,6 @@
 app-id: ninja.boop.OledWallpaper
-runtime: org.freedesktop.Platform//24.08
-sdk: org.freedesktop.Sdk//24.08
+runtime: org.freedesktop.Platform//25.08
+sdk: org.freedesktop.Sdk//25.08
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 command: oled-config
