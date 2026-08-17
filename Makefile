@@ -105,5 +105,7 @@ install-bundle:
 	@echo "-> Installing bundle with runtime auto-setup"
 	flatpak remote-add --if-not-exists --user flathub $(FLATHUB_REPO)
 	flatpak install --user --noninteractive --assumeyes flathub $(RUNTIME_REF)
+	@# Purge any stale .removed entries that cause "Directory not empty" on reinstall
+	@rm -rf "$(HOME)/.local/share/flatpak/.removed/$(APP_ID)"* 2>/dev/null || true
 	flatpak install --user --noninteractive --reinstall --assumeyes $(DIST_DIR)/$(APP_ID).flatpak
 	@echo "-> Installed $(APP_ID) from bundle"
