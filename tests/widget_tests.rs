@@ -36,10 +36,12 @@ fn config_round_trips_toml() {
 
 #[test]
 fn clock_text_24h() {
-    let mut cfg = OverlayConfig::default();
-    cfg.show_clock = true;
-    cfg.clock_24h = true;
-    cfg.clock_show_seconds = false;
+    let cfg = OverlayConfig {
+        show_clock: true,
+        clock_24h: true,
+        clock_show_seconds: false,
+        ..Default::default()
+    };
     let t = clock_text(&cfg).expect("clock text");
     assert!(t.contains(':'));
     assert!(!t.contains("AM"), "expected 24h but got AM/PM: {t}");
@@ -48,15 +50,19 @@ fn clock_text_24h() {
 
 #[test]
 fn clock_text_disabled_returns_none() {
-    let mut cfg = OverlayConfig::default();
-    cfg.show_clock = false;
+    let cfg = OverlayConfig {
+        show_clock: false,
+        ..Default::default()
+    };
     assert!(clock_text(&cfg).is_none());
 }
 
 #[test]
 fn calendar_text_disabled() {
-    let mut cfg = OverlayConfig::default();
-    cfg.show_calendar = false;
+    let cfg = OverlayConfig {
+        show_calendar: false,
+        ..Default::default()
+    };
     assert!(calendar_text(&cfg).is_none());
 }
 
