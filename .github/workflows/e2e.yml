@@ -16,6 +16,8 @@ jobs:
       - name: Build (make)
         run: make build
       - name: Run E2E scripts
+        env:
+          WGPU_BACKEND: gl
         run: |
           chmod +x tests/e2e/*.sh
           # Run lightweight headless scripts (these use --demo short runs)
