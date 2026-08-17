@@ -37,3 +37,4 @@ Thumbs.db
 .claude/session-state/
 .flatpak-builder/
 dist/
+graphify-out/
