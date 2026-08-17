@@ -10,10 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install deps (xvfb for headless display)
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Build (make)
@@ -35,10 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install flatpak tooling
         run: |
           sudo apt-get update
