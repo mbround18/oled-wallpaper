@@ -3,12 +3,11 @@ set -euo pipefail
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-# Build before HOME is redirected so rustup/cargo can resolve the toolchain.
+# Build once up front.
 cargo build --quiet
 
-export HOME="$TMPDIR"
-# Write config via headless configurator (uses HOME/.config/oled-wallpaper/config.toml)
-target/debug/oled-config --headless --apply "widget-off"
+CONFIG_PATH="$HOME/.config/oled-wallpaper/config.toml"
+target/debug/oled-config --headless --apply "widget-off" --config-dir "$CONFIG_PATH"
 # Run wallpaper in demo mode for 3s and capture logs
 LOGFILE="$TMPDIR/wall.log"
 RUST_LOG=info target/debug/oled-wallpaper --demo 3 2>&1 | tee "$LOGFILE"
@@ -18,7 +17,7 @@ if ! grep -q "Widget overlay absent" "$LOGFILE"; then
   exit 2
 fi
 # Also test widget-on path
-target/debug/oled-config --headless --apply "widget-on"
+target/debug/oled-config --headless --apply "widget-on" --config-dir "$CONFIG_PATH"
 RUST_LOG=info target/debug/oled-wallpaper --demo 2 2>&1 | tee "$LOGFILE"
 if ! grep -q "Widget overlay present" "$LOGFILE"; then
   echo "Widget not present after enabling"
