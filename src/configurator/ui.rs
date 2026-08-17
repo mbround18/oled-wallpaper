@@ -133,7 +133,9 @@ impl Tab {
 // ─── App state ────────────────────────────────────────────────────────────────
 
 use crate::config::{Config, WeatherProvider};
-use crate::runtime::{autostart_enabled, autostart_info, set_autostart_enabled, wallpaper_status};
+use crate::runtime::{
+    autostart_enabled, autostart_info, restart_wallpaper, set_autostart_enabled, wallpaper_status,
+};
 use eframe::egui;
 use egui::plot::{Line, Plot};
 use std::collections::VecDeque;
@@ -636,7 +638,7 @@ fn widget_settings(ui: &mut egui::Ui, label: &str, w: &mut crate::config::Overla
     });
 }
 
-fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
+fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
     ui.checkbox(
         &mut app.cfg.overlay.widget_enabled,
         egui::RichText::new("Enable overlay widgets").color(STAR),
@@ -674,71 +676,6 @@ fn tab_widgets(app: &mut ConfiguratorApp, ui: &mut egui::Ui, t: f32) {
             widget_settings(ui, "Wind", &mut app.cfg.overlay.wind_w);
             widget_settings(ui, "AQI", &mut app.cfg.overlay.aqi_w);
         });
-
-    ui.add_space(10.0);
-    section_heading(ui, "PREVIEW");
-    let preview_h = 180.0;
-    let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), preview_h),
-        egui::Sense::hover(),
-    );
-    let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 6.0, VOID);
-    painter.rect_stroke(rect, 6.0, egui::Stroke::new(1.0_f32, BORDER));
-    // Tiny stars
-    for i in 0..60u32 {
-        let seed = i.wrapping_mul(2654435761);
-        let sx = (seed & 0xFFFF) as f32 / 65535.0;
-        let sy = ((seed >> 16) & 0xFFFF) as f32 / 65535.0;
-        let px = rect.left() + sx * rect.width();
-        let py = rect.top() + sy * rect.height();
-        let bright = 0.2 + 0.6 * (seed & 0xFF) as f32 / 255.0;
-        let twinkle = 0.7 + 0.3 * (t * (1.0 + bright) + sx * 6.0).sin();
-        let alpha = (bright * twinkle * 200.0) as u8;
-        painter.circle_filled(
-            egui::pos2(px, py),
-            1.2,
-            egui::Color32::from_rgba_premultiplied(200, 210, 255, alpha),
-        );
-    }
-    // Draw a dot for each widget at its configured position
-    let widgets = [
-        (&app.cfg.overlay.clock_w, "12:34"),
-        (&app.cfg.overlay.weather_w, "☀ 22C"),
-        (&app.cfg.overlay.wind_w, "Wind"),
-        (&app.cfg.overlay.aqi_w, "AQI"),
-    ];
-    for (w, label) in &widgets {
-        if !w.enabled {
-            continue;
-        }
-        let float_offset = if w.float_mode {
-            let s = w.float_speed;
-            egui::vec2((t * s).sin() * 12.0, (t * s * 1.37).cos() * 8.0)
-        } else {
-            egui::vec2(0.0, 0.0)
-        };
-        let wx = rect.left() + w.position[0] * rect.width();
-        let wy = rect.top() + w.position[1] * rect.height();
-        let wpos = egui::pos2(wx, wy) + float_offset;
-        let [r, g, b, a] = w.color;
-        let wcol = egui::Color32::from_rgba_unmultiplied(
-            (r * 255.0) as u8,
-            (g * 255.0) as u8,
-            (b * 255.0) as u8,
-            (a * 255.0) as u8,
-        );
-        painter.circle_filled(wpos, 10.0, wcol.linear_multiply(0.3));
-        painter.circle_stroke(wpos, 10.0, egui::Stroke::new(1.5_f32, wcol));
-        let galactic = egui::FontId::proportional(9.0);
-        painter.text(
-            wpos + egui::vec2(0.0, -20.0),
-            egui::Align2::CENTER_CENTER,
-            label,
-            galactic,
-            wcol,
-        );
-    }
 }
 
 // ── Weather tab ──────────────────────────────────────────────────────────────
@@ -1183,30 +1120,33 @@ impl eframe::App for ConfiguratorApp {
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    let save_btn = ui.add(
-                        egui::Button::new(
-                            egui::RichText::new("  Save Config  ").color(STAR).strong(),
-                        )
-                        .fill(ACCENT_DIM)
-                        .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
-                    );
-                    if save_btn.clicked() {
-                        self.save();
-                        self.save_message = Some(("Config saved.".into(), t as f64));
+                    // Fade message on the left
+                    if let Some((msg, ts)) = &self.save_message {
+                        let age = t as f64 - ts;
+                        if age < 4.0 {
+                            let alpha = (1.0 - (age / 4.0)).max(0.0) as f32;
+                            let col = egui::Color32::from_rgba_unmultiplied(
+                                200, 230, 255, (alpha * 200.0) as u8,
+                            );
+                            ui.label(egui::RichText::new(msg.as_str()).color(col).small());
+                        }
                     }
 
+                    // Save button pinned to the right
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if let Some((msg, ts)) = &self.save_message {
-                            let age = t as f64 - ts;
-                            if age < 4.0 {
-                                let alpha = (1.0 - (age / 4.0)).max(0.0) as f32;
-                                let col = egui::Color32::from_rgba_unmultiplied(
-                                    200,
-                                    230,
-                                    255,
-                                    (alpha * 200.0) as u8,
-                                );
-                                ui.label(egui::RichText::new(msg.as_str()).color(col).small());
+                        let save_btn = ui.add(
+                            egui::Button::new(
+                                egui::RichText::new("  Save & Restart  ").color(STAR).strong(),
+                            )
+                            .fill(ACCENT_DIM)
+                            .stroke(egui::Stroke::new(1.0_f32, ACCENT)),
+                        );
+                        if save_btn.clicked() {
+                            self.save();
+                            // Restart the wallpaper so changes take effect immediately
+                            match restart_wallpaper() {
+                                Ok(()) => self.save_message = Some(("Saved — wallpaper restarted.".into(), t as f64)),
+                                Err(e) => self.save_message = Some((format!("Saved (restart failed: {e})"), t as f64)),
                             }
                         }
                     });
@@ -1239,7 +1179,7 @@ impl eframe::App for ConfiguratorApp {
                                         match self.tab {
                                             Tab::Control => tab_control(self, ui),
                                             Tab::Galaxy => tab_galaxy(self, ui),
-                                            Tab::Widgets => tab_widgets(self, ui, t),
+                                            Tab::Widgets => tab_widgets(self, ui),
                                             Tab::Weather => tab_weather(self, ui),
                                             Tab::System => tab_system(self, ui),
                                         }

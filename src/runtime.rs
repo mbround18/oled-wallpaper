@@ -265,3 +265,36 @@ pub fn set_autostart_enabled(enabled: bool) -> Result<(), std::io::Error> {
     }
     Ok(())
 }
+
+// ─── Wallpaper restart ────────────────────────────────────────────────────────
+
+/// Kill the running wallpaper (if any) then immediately relaunch it.
+/// Returns an error string if the relaunch failed.
+pub fn restart_wallpaper() -> Result<(), String> {
+    // Kill current instance using the PID in the lock file
+    let status = wallpaper_status();
+    if let Some(pid) = status.pid {
+        let _ = std::process::Command::new("kill")
+            .arg("-TERM")
+            .arg(pid.to_string())
+            .status();
+        // Give the process a moment to exit and release the lock
+        std::thread::sleep(std::time::Duration::from_millis(400));
+    }
+
+    // Choose launch command: Flatpak or native sibling binary
+    let (cmd, args): (&str, Vec<&str>) = if flatpak_app_installed() {
+        ("flatpak", vec!["run", "--command=oled-wallpaper", FLATPAK_APP_ID])
+    } else {
+        ("oled-wallpaper", vec![])
+    };
+
+    std::process::Command::new(cmd)
+        .args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to launch wallpaper: {e}"))
+}
