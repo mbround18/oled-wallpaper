@@ -2725,6 +2725,7 @@ dependencies = [
  "egui",
  "glam",
  "glyphon",
+ "libc",
  "pollster",
  "raw-window-handle 0.6.2",
  "serde",

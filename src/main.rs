@@ -1037,6 +1037,11 @@ fn main() {
                             return;
                         }
                     }
+                    if oled_wallpaper::runtime::restart_requested() {
+                        oled_wallpaper::runtime::clear_restart_request();
+                        elwt.exit();
+                        return;
+                    }
 
                     let now = Instant::now();
                     let dt = now.duration_since(last).as_secs_f32().min(0.05);

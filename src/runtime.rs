@@ -1,9 +1,11 @@
 use std::fmt::{Display, Formatter};
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 
 const LOCK_FILE: &str = "wallpaper.lock";
+const RESTART_SIGNAL_FILE: &str = "restart.signal";
 const AUTOSTART_FILE: &str = "ninja.boop.OledWallpaper.desktop";
 const FLATPAK_APP_ID: &str = "ninja.boop.OledWallpaper";
 
@@ -187,14 +189,15 @@ impl From<std::io::Error> for WallpaperLockError {
     }
 }
 
+/// Holds the open lock file (and thus its `flock`) for the process's lifetime.
+/// The OS releases the flock automatically when this file descriptor closes —
+/// on a clean drop, on any signal-based termination (SIGTERM/SIGKILL don't run
+/// Rust destructors, but the kernel closes fds and releases flocks regardless),
+/// and even across a Flatpak sandbox boundary, since flock has no concept of
+/// PIDs or PID namespaces at all. See the module-level doc comment on
+/// `acquire_wallpaper_lock` for why this replaced PID-based locking.
 pub struct WallpaperInstanceGuard {
-    lock_path: PathBuf,
-}
-
-impl Drop for WallpaperInstanceGuard {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.lock_path);
-    }
+    _file: File,
 }
 
 fn runtime_dir() -> PathBuf {
@@ -203,6 +206,32 @@ fn runtime_dir() -> PathBuf {
 
 fn lock_path() -> PathBuf {
     runtime_dir().join(LOCK_FILE)
+}
+
+fn restart_signal_path() -> PathBuf {
+    runtime_dir().join(RESTART_SIGNAL_FILE)
+}
+
+/// Try to take a non-blocking exclusive flock on `file`. `Ok(true)` = we hold
+/// it now; `Ok(false)` = someone else holds it; `Err` = unexpected OS error.
+fn try_flock(file: &File) -> Result<bool, std::io::Error> {
+    let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+    if rc == 0 {
+        Ok(true)
+    } else {
+        let err = std::io::Error::last_os_error();
+        if err.kind() == std::io::ErrorKind::WouldBlock {
+            Ok(false)
+        } else {
+            Err(err)
+        }
+    }
+}
+
+fn unflock(file: &File) {
+    unsafe {
+        libc::flock(file.as_raw_fd(), libc::LOCK_UN);
+    }
 }
 
 fn autostart_path() -> PathBuf {
@@ -214,70 +243,110 @@ fn autostart_path() -> PathBuf {
         .join(AUTOSTART_FILE)
 }
 
-fn pid_alive(pid: u32) -> bool {
-    Path::new(&format!("/proc/{pid}")).exists()
-}
-
 fn read_lock_pid(path: &Path) -> Option<u32> {
     fs::read_to_string(path)
         .ok()
         .and_then(|s| s.trim().parse::<u32>().ok())
 }
 
-fn write_lock(path: &Path) -> Result<(), std::io::Error> {
-    let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
-    writeln!(file, "{}", std::process::id())?;
-    file.flush()?;
-    Ok(())
-}
-
+/// Acquire the single-instance lock via advisory `flock`, not a PID stored in
+/// the file.
+///
+/// This used to store the current PID in the lock file and have later callers
+/// check `/proc/{pid}` to decide if the old instance was still alive. That is
+/// meaningless under Flatpak: every `flatpak run` gets its own private PID
+/// namespace, and the launched process almost always lands on PID 2 there. A
+/// wallpaper started via the autostart entry's `flatpak run` would write "2"
+/// to the lock file; the Configurator, running in a *different* sandbox
+/// instance (or natively), would then check `/proc/2` in *its own* namespace
+/// — where PID 2 is some unrelated process (on a bare host, the kthreadd
+/// kernel thread, which is always alive). That check always returned "yes,
+/// still running," permanently, regardless of whether the real wallpaper
+/// process was alive at all — the exact "auto locked, never starts again"
+/// bug this replaced. `flock` has no notion of PIDs or namespaces: it's held
+/// on the shared lock file's inode itself (visible to every sandbox instance
+/// via the existing `~/.config/oled-wallpaper` filesystem permission) and is
+/// released by the kernel the moment the holding file descriptor closes, for
+/// any reason — clean exit, SIGTERM, SIGKILL, or a crash — with no signal
+/// handler or cleanup code required.
 pub fn acquire_wallpaper_lock() -> Result<WallpaperInstanceGuard, WallpaperLockError> {
     fs::create_dir_all(runtime_dir())?;
     let path = lock_path();
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(&path)?;
 
-    for _ in 0..2 {
-        match write_lock(&path) {
-            Ok(()) => return Ok(WallpaperInstanceGuard { lock_path: path }),
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                let existing = read_lock_pid(&path);
-                if let Some(pid) = existing {
-                    if pid_alive(pid) {
-                        return Err(WallpaperLockError::AlreadyRunning { pid: Some(pid) });
-                    }
-                }
-                let _ = fs::remove_file(&path);
-            }
-            Err(e) => return Err(WallpaperLockError::Io(e)),
-        }
+    if !try_flock(&file)? {
+        // Best-effort only: the PID in the file may belong to a different
+        // sandbox instance's namespace and not resolve to anything meaningful
+        // here. It's kept purely as a diagnostic hint for error messages/UI.
+        let pid = read_lock_pid(&path);
+        return Err(WallpaperLockError::AlreadyRunning { pid });
     }
 
-    Err(WallpaperLockError::AlreadyRunning { pid: None })
+    // We hold the flock now. Stamp our own PID for display purposes only.
+    file.set_len(0)?;
+    {
+        let mut f = &file;
+        f.write_all(format!("{}\n", std::process::id()).as_bytes())?;
+        f.flush()?;
+    }
+    Ok(WallpaperInstanceGuard { _file: file })
 }
 
 pub fn wallpaper_status() -> WallpaperStatus {
     let path = lock_path();
-    if !path.exists() {
-        return WallpaperStatus {
+    let file = match OpenOptions::new().read(true).write(true).open(&path) {
+        Ok(f) => f,
+        Err(_) => {
+            return WallpaperStatus {
+                running: false,
+                pid: None,
+            }
+        }
+    };
+
+    match try_flock(&file) {
+        Ok(true) => {
+            // We just took the lock ourselves - nobody else holds it. Release
+            // it immediately since we're only checking status, not running.
+            unflock(&file);
+            WallpaperStatus {
+                running: false,
+                pid: None,
+            }
+        }
+        Ok(false) => WallpaperStatus {
+            running: true,
+            pid: read_lock_pid(&path),
+        },
+        Err(_) => WallpaperStatus {
             running: false,
             pid: None,
-        };
+        },
     }
+}
 
-    let pid = read_lock_pid(&path);
-    if let Some(pid) = pid {
-        if pid_alive(pid) {
-            return WallpaperStatus {
-                running: true,
-                pid: Some(pid),
-            };
-        }
-    }
+/// Ask a running wallpaper instance to exit on its own (its render loop polls
+/// for this each frame). Cross-sandbox `kill -TERM <pid>` can't work here for
+/// the same reason PID-based lock checking couldn't: the PID is only
+/// meaningful inside its own sandbox's PID namespace. This is a cooperative
+/// signal written to the same shared, bind-mounted config directory instead.
+pub fn request_restart() -> Result<(), std::io::Error> {
+    fs::write(restart_signal_path(), "")
+}
 
-    let _ = fs::remove_file(&path);
-    WallpaperStatus {
-        running: false,
-        pid: None,
-    }
+/// Checked by the wallpaper's render loop once per frame.
+pub fn restart_requested() -> bool {
+    restart_signal_path().exists()
+}
+
+/// Consume the restart request so it doesn't immediately refire.
+pub fn clear_restart_request() {
+    let _ = fs::remove_file(restart_signal_path());
 }
 
 pub fn autostart_enabled() -> bool {
@@ -299,32 +368,51 @@ pub fn set_autostart_enabled(enabled: bool) -> Result<(), std::io::Error> {
 
 // ─── Wallpaper restart ────────────────────────────────────────────────────────
 
-/// Kill the running wallpaper (if any) then immediately relaunch it.
-/// Returns an error string if the relaunch failed.
+/// Ask the running wallpaper (if any) to exit, wait for it to actually
+/// release its lock, then relaunch it. Returns an error string if the
+/// existing instance didn't exit in time or the relaunch failed.
+///
+/// This no longer kills by PID (see `acquire_wallpaper_lock`'s doc comment
+/// for why that's unreliable, sometimes permanently, under Flatpak).
+/// Instead it writes a cooperative restart-request file the wallpaper's
+/// render loop polls each frame, then waits for `wallpaper_status()` to
+/// confirm the flock was actually released before spawning a new instance -
+/// spawning too early would just make the new instance fail to acquire the
+/// lock itself.
 pub fn restart_wallpaper() -> Result<(), String> {
-    // Kill current instance using the PID in the lock file
-    let status = wallpaper_status();
-    if let Some(pid) = status.pid {
-        let _ = std::process::Command::new("kill")
-            .arg("-TERM")
-            .arg(pid.to_string())
-            .status();
-        // Give the process a moment to exit and release the lock
-        std::thread::sleep(std::time::Duration::from_millis(400));
+    if wallpaper_status().running {
+        request_restart().map_err(|e| format!("Failed to signal restart: {e}"))?;
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            if !wallpaper_status().running {
+                break;
+            }
+            if std::time::Instant::now() >= deadline {
+                clear_restart_request();
+                return Err("Timed out waiting for the running wallpaper to exit".to_string());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
     }
 
-    // Choose launch command: Flatpak or native sibling binary
-    let (cmd, args): (&str, Vec<&str>) = if flatpak_app_installed() {
-        (
-            "flatpak",
-            vec!["run", "--command=oled-wallpaper", FLATPAK_APP_ID],
-        )
-    } else {
-        ("oled-wallpaper", vec![])
-    };
+    // Resolve the wallpaper binary the same way regardless of Flatpak or
+    // native: try a sibling of the current executable first (covers both
+    // `/app/bin/oled-wallpaper` next to `/app/bin/oled-config` inside the
+    // sandbox, and a native sibling install), else fall back to bare PATH
+    // lookup (covers /app/bin being on PATH inside the sandbox too). This
+    // deliberately does NOT shell out to `flatpak run`: the `flatpak` CLI
+    // binary isn't present inside the sandbox itself, so that would always
+    // fail to spawn when called from a running, sandboxed oled-config.
+    let bin = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            let sibling = p.with_file_name("oled-wallpaper");
+            sibling.exists().then_some(sibling)
+        })
+        .unwrap_or_else(|| PathBuf::from("oled-wallpaper"));
 
-    std::process::Command::new(cmd)
-        .args(&args)
+    std::process::Command::new(bin)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
