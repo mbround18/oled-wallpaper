@@ -134,7 +134,8 @@ impl Tab {
 
 use crate::config::{Config, WeatherProvider};
 use crate::runtime::{
-    autostart_enabled, autostart_info, restart_wallpaper, set_autostart_enabled, wallpaper_status,
+    autostart_enabled, autostart_info, heal_autostart_if_stale, restart_wallpaper,
+    set_autostart_enabled, wallpaper_status,
 };
 use eframe::egui;
 use egui::plot::{Line, Plot};
@@ -260,7 +261,11 @@ impl Default for ConfiguratorApp {
             history_len,
             wallpaper_running: false,
             wallpaper_pid: None,
-            startup_enabled: autostart_enabled(),
+            startup_enabled: {
+                // Silently fix any stale Exec= line from older versions
+                heal_autostart_if_stale();
+                autostart_enabled()
+            },
             save_message: None,
             theme_applied: false,
             locate_status: Default::default(),
@@ -461,10 +466,12 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
             if app.startup_enabled {
                 ui.add_space(6.0);
                 let info = autostart_info();
-                let border_col = if info.file_exists && info.exec_reachable {
-                    GLOW_GREEN
-                } else {
+                let border_col = if !info.file_exists || !info.exec_reachable {
                     DANGER
+                } else if info.exec_stale {
+                    egui::Color32::from_rgb(255, 190, 60) // amber = was stale, now fixed
+                } else {
+                    GLOW_GREEN
                 };
                 egui::Frame::none()
                     .fill(DEEP)
@@ -481,6 +488,16 @@ fn tab_control(app: &mut ConfiguratorApp, ui: &mut egui::Ui) {
                                     .small()
                                     .monospace(),
                             );
+                        }
+
+                        // Exec line up to date
+                        if info.exec_stale {
+                            ui.horizontal(|ui| {
+                                ui.label(egui::RichText::new("⟳").color(egui::Color32::from_rgb(255, 190, 60)).strong());
+                                ui.label(egui::RichText::new("Exec= updated — was outdated, fixed automatically").color(egui::Color32::from_rgb(255, 190, 60)).small());
+                            });
+                        } else {
+                            check_row(ui, true, "Exec= command up to date");
                         }
 
                         // Exec reachable check

@@ -84,10 +84,10 @@ fn autostart_desktop_content() -> String {
 #[derive(Debug, Clone)]
 pub struct AutostartInfo {
     pub path: PathBuf,
-    pub exec_line: String,
+    pub exec_line: String,   // what *should* be in the file
     pub file_exists: bool,
-    /// Whether the exec command/binary is actually reachable right now.
     pub exec_reachable: bool,
+    pub exec_stale: bool,    // file exists but has an old/different Exec= line
     pub via_flatpak: bool,
 }
 
@@ -97,25 +97,36 @@ pub fn autostart_info() -> AutostartInfo {
     let path = autostart_path();
     let file_exists = path.exists();
 
-    let exec_reachable = if via_flatpak {
-        // flatpak_app_installed() already confirmed this
-        true
+    // Stale = file exists but doesn't contain the correct Exec= line
+    let exec_stale = if file_exists {
+        fs::read_to_string(&path)
+            .map(|c| !c.lines().any(|l| l.trim() == format!("Exec={exec_line}")))
+            .unwrap_or(false)
     } else {
-        let bin = exec_line.trim();
-        if bin.starts_with('/') {
-            Path::new(bin).exists()
-        } else {
-            which_ok(bin)
-        }
+        false
     };
 
-    AutostartInfo {
-        path,
-        exec_line,
-        file_exists,
-        exec_reachable,
-        via_flatpak,
+    let exec_reachable = if via_flatpak {
+        true // flatpak_app_installed() already confirmed this
+    } else {
+        let bin = exec_line.trim();
+        if bin.starts_with('/') { Path::new(bin).exists() } else { which_ok(bin) }
+    };
+
+    AutostartInfo { path, exec_line, file_exists, exec_reachable, exec_stale, via_flatpak }
+}
+
+/// If an autostart file exists with a stale Exec= line, silently rewrite it.
+/// Returns true if it was updated.
+pub fn heal_autostart_if_stale() -> bool {
+    let info = autostart_info();
+    if info.file_exists && info.exec_stale {
+        if set_autostart_enabled(true).is_ok() {
+            tracing::info!("Autostart healed: Exec={}", info.exec_line);
+            return true;
+        }
     }
+    false
 }
 
 fn which_ok(cmd: &str) -> bool {
