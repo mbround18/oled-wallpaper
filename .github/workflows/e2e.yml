@@ -12,7 +12,14 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install deps (xvfb for headless display)
-        run: sudo apt-get update && sudo apt-get install -y xvfb libxkbcommon-x11-0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libxkbcommon-x11-0 \
+            libgl1-mesa-dri \
+            libegl1-mesa \
+            mesa-vulkan-drivers
       - name: Build (make)
         run: make build
       - name: Run E2E scripts
