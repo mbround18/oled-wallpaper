@@ -6,47 +6,11 @@ on:
   pull_request:
     branches: [ main, develop ]
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-
 jobs:
-  test:
-    name: Test Suite
+  ci:
+    name: paws ci --toolchain rust
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all --verbose
-
-  fmt:
-    name: Code Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo fmt --all -- --check
-
-  clippy:
-    name: Lint (Clippy)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all --all-targets -- -D warnings
-
-  build:
-    name: Build Release
-    runs-on: ubuntu-latest
-    needs: [test, fmt, clippy]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --verbose
-      - uses: actions/upload-artifact@v4
-        with:
-          name: oled-wallpaper-release
-          path: target/release/oled-wallpaper
+      - uses: actions/checkout@v7
+      - uses: mbround18/paws/actions/paws-up@main
+      - run: paws ci --toolchain rust
