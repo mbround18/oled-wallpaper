@@ -36,7 +36,7 @@ anyhow = "1.0"
 dirs = "4.0"
 eframe = "0.22"
 egui = "0.22"
-sysinfo = "0.29"
+sysinfo = "0.39"
 ureq = { version = "2", features = ["json"] }
 libc = "0.2"
 
