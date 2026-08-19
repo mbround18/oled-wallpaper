@@ -46,7 +46,7 @@ jobs:
           cp -r packaging "$STAGE/"
           cp README.md "$STAGE/"
           tar czf "$STAGE.tar.gz" "$STAGE"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: binary-tarball
           path: "oled-wallpaper-*.tar.gz"
@@ -66,7 +66,7 @@ jobs:
             org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
       - name: Build bundle
         run: make build-bundle
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flatpak-bundle
           path: "dist/*.flatpak"
