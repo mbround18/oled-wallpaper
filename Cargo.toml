@@ -16,7 +16,7 @@ name = "oled-config"
 path = "src/bin/oled-config.rs"
 
 [dependencies]
-wgpu = "0.20"
+wgpu = "30.0"
 winit = "0.30"
 glam = "0.24"
 toml = "0.9"
